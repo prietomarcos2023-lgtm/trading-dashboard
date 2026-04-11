@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Mareblu Trading Journal — Sistema de rendimiento personal">
+<meta name="theme-color" content="#0c0d10">
+<title>Mareblu Trading Journal</title>
+
+<!-- Fonts — preconnect for faster load -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- App styles -->
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">M</div>
+    <div class="header-brand">
+      <div class="header-title">Trading Journal</div>
+      <div class="header-sub">Mareblu · Sistema de rendimiento</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-chip">
+      <div class="live-dot"></div>
+      <span id="headerCapital">$0.00</span>
+    </div>
+    <button class="hdr-btn intel" onclick="openIntel()">◈ Inteligencia</button>
+    <button class="hdr-btn" onclick="openSettings()">⚙ Capital</button>
+    <!-- Export / Import backup buttons -->
+    <button class="hdr-btn export-btn" onclick="exportBackup()" title="Exportar todos los datos como JSON">⬇ Backup</button>
+    <button class="hdr-btn export-btn" onclick="importBackup()" title="Restaurar datos desde JSON">⬆ Restaurar</button>
+  </div>
+</div>
+
+<!-- ACCOUNT BAR -->
+<div class="acct-bar" id="acctBar">
+  <span class="acct-bar-label">Cuenta</span>
+  <div id="acctPills" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
+  <button class="acct-add-btn" onclick="openAcctModal(null)">＋ Nueva cuenta</button>
+  <button class="acct-global-btn" onclick="openConsolidado()">⊞ Consolidado</button>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+
+  <!-- Account info -->
+  <div id="sideAcctInfo"></div>
+
+  <!-- Risk Engine -->
+  <div class="s-section">
+    <div class="s-label">Motor de riesgo</div>
+    <div id="riskCard">
+      <div class="risk-card risk-neutro">
+        <div class="risk-mode">NEUTRO</div>
+        <div class="risk-pct">0.75%</div>
+        <div class="risk-dollar">—</div>
+        <div class="risk-rr">RR mínimo: <span class="risk-rr-val">1:1.5</span></div>
+        <div class="risk-msg">Registrá trades para activar el motor.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Capital -->
+  <div class="s-section">
+    <div class="s-label">Balance</div>
+    <div class="capital-box">
+      <div class="capital-label">Capital actual</div>
+      <div class="capital-val" id="sCapital">$0.00</div>
+      <div class="capital-change" id="sCapitalChange">—</div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="s-section">
+    <div class="s-label">Rendimiento</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="stat-row"><span class="stat-row-label">P&L Total</span><span class="stat-row-val val-win" id="sPnl">$0.00</span></div>
+      <div class="stat-row"><span class="stat-row-label">% Diario</span><span class="stat-row-val" id="sDiario">0.00%</span></div>
+      <div class="stat-row"><span class="stat-row-label">% Semanal</span><span class="stat-row-val" id="sSemanal">0.00%</span></div>
+      <div class="stat-row"><span class="stat-row-label">% Mensual</span><span class="stat-row-val" id="sMensual">0.00%</span></div>
+    </div>
+  </div>
+
+  <!-- Win Rate -->
+  <div class="s-section">
+    <div class="s-label">Win Rate</div>
+    <div class="wr-bar-wrap">
+      <div class="wr-bar-top">
+        <span style="font-size:10px;color:var(--text2)">Win Rate</span>
+        <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--win)" id="sWinRate">0%</span>
+      </div>
+      <div class="wr-bar-track"><div class="wr-bar-fill" id="sWinBar" style="width:0%"></div></div>
+      <div class="wr-count-row">
+        <span style="font-size:9px;color:var(--win)">✓ <span id="sWins">0</span></span>
+        <span style="font-size:9px;color:var(--muted)" id="sTotalTrades">0 trades</span>
+        <span style="font-size:9px;color:var(--loss)">✗ <span id="sLosses">0</span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Streak -->
+  <div class="s-section">
+    <div class="s-label">Racha actual</div>
+    <div class="streak-box" id="streakBox">
+      <div class="streak-icon" id="streakIcon">—</div>
+      <div>
+        <div class="streak-val" id="streakVal">0</div>
+        <div class="streak-lbl" id="streakLbl">Sin operaciones</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Best / Worst -->
+  <div class="s-section">
+    <div class="s-label">Extremos del mes</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="stat-row"><span class="stat-row-label">🏆 Mejor día</span><span class="stat-row-val val-win" id="sBest">—</span></div>
+      <div class="stat-row"><span class="stat-row-label">💀 Peor día</span><span class="stat-row-val val-loss" id="sWorst">—</span></div>
+      <div class="stat-row"><span class="stat-row-label">📅 Días verdes</span><span class="stat-row-val val-win" id="sGreenDays">0</span></div>
+      <div class="stat-row"><span class="stat-row-label">📅 Días rojos</span><span class="stat-row-val val-loss" id="sRedDays">0</span></div>
+    </div>
+  </div>
+
+  <!-- Consistency -->
+  <div class="s-section">
+    <div class="s-label">Consistencia semanal</div>
+    <div class="consistency-row" id="consistencyDots"></div>
+    <div style="margin-top:5px;font-size:8px;color:var(--muted);letter-spacing:0.3px">Verde = ganador · Rojo = pérdida · Gris = sin operar</div>
+  </div>
+
+  <!-- Equity chart -->
+  <div class="s-section">
+    <div class="chart-wrap">
+      <div class="chart-title">Curva de capital</div>
+      <canvas id="equityChart"></canvas>
+    </div>
+  </div>
+
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <div class="month-nav">
+    <div>
+      <div class="month-title" id="monthTitle">—</div>
+      <div class="month-sub" id="monthSub">0 operaciones registradas</div>
+    </div>
+    <div class="nav-btns">
+      <div class="filter-btns">
+        <button class="filter-btn active-all" id="fbAll"  onclick="setFilter('all')">Todos</button>
+        <button class="filter-btn" id="fbWin"  onclick="setFilter('win')">✓ Ganados</button>
+        <button class="filter-btn" id="fbLoss" onclick="setFilter('loss')">✗ Perdidos</button>
+      </div>
+      <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+      <button class="nav-btn" onclick="changeMonth(1)">›</button>
+    </div>
+  </div>
+
+  <div class="cal-headers">
+    <div class="cal-header">LUN</div><div class="cal-header">MAR</div>
+    <div class="cal-header">MIÉ</div><div class="cal-header">JUE</div>
+    <div class="cal-header">VIE</div><div class="cal-header">SÁB</div>
+    <div class="cal-header">DOM</div>
+  </div>
+  <div class="calendar" id="calendar"></div>
+
+</main>
+</div>
+
+<!-- TRADE MODAL -->
+<div class="modal-overlay" id="tradeModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <div class="modal-date" id="modalDateTitle">—</div>
+      <button class="modal-close" onclick="closeTradeModal()">✕</button>
+    </div>
+
+    <div class="result-type">
+      <button class="type-btn" id="btnTP" onclick="setType('TP')">✅ TP — Ganado</button>
+      <button class="type-btn" id="btnSL" onclick="setType('SL')">❌ SL — Perdido</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Resultado ($)</label>
+        <input type="number" class="form-input" id="fResultado" placeholder="Ej: 45.50" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nº trades</label>
+        <input type="number" class="form-input" id="fTrades" placeholder="1" min="1" value="1">
+      </div>
+    </div>
+
+    <div class="form-row-3">
+      <div class="form-group">
+        <label class="form-label">Par</label>
+        <select class="form-select" id="fPair">
+          <option value="">— Par —</option>
+          <option value="XAUUSD">XAUUSD</option>
+          <option value="EURUSD">EURUSD</option>
+          <option value="GBPUSD">GBPUSD</option>
+          <option value="USDJPY">USDJPY</option>
+          <option value="GBPJPY">GBPJPY</option>
+          <option value="NAS100">NAS100</option>
+          <option value="US30">US30</option>
+          <option value="OTRO">Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sesión</label>
+        <select class="form-select" id="fSession">
+          <option value="">— Sesión —</option>
+          <option value="Asia">Asia</option>
+          <option value="Londres">Londres</option>
+          <option value="NY">New York</option>
+          <option value="Overlap">Overlap</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ejecución</label>
+        <select class="form-select" id="fExecution">
+          <option value="">— Ejecución —</option>
+          <option value="buena">✅ Buena</option>
+          <option value="mala">⚠ Mala</option>
+          <option value="emocional">❌ Emocional</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group full">
+        <label class="form-label">Setup</label>
+        <select class="form-select" id="fSetupType">
+          <option value="">— Tipo de setup —</option>
+          <optgroup label="── Smart Money Concepts ──">
+            <option value="BOS+FVG">📐 BOS + FVG</option>
+            <option value="LiquiditySweep">💧 Liquidity Sweep</option>
+            <option value="OB">🟦 Order Block</option>
+            <option value="CHOCH+OB">🔄 CHoCH + OB</option>
+            <option value="MSS">⚡ MSS</option>
+            <option value="Breaker">🔲 Breaker Block</option>
+          </optgroup>
+          <optgroup label="── CRT / Correlación ──">
+            <option value="Rango CRT">📊 Rango CRT</option>
+            <option value="Rango CRT+SMT">📊🔗 Rango CRT + SMT</option>
+            <option value="SMT">🔗 SMT</option>
+            <option value="CHOCH+OB">🔗 SMT / Correlación</option>
+          </optgroup>
+          <optgroup label="── Personalizado ──">
+            <option value="Custom">✏️ Custom</option>
+          </optgroup>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group full">
+        <label class="form-label">Setup · Razón de entrada (detalle)</label>
+        <input type="text" class="form-input" id="fSetup" placeholder="Ej: BOS en H1 + FVG H4 como entrada">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group full">
+        <label class="form-label">Notas</label>
+        <textarea class="form-textarea" id="fNotas" placeholder="¿Qué salió bien? ¿Qué mejorar? ¿Cómo fue la ejecución?"></textarea>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label">Screenshots (máx. 3)</label>
+      <div class="img-slots">
+        <div class="img-slot" id="imgSlot0" onclick="triggerImgUpload(0)">
+          <span class="img-slot-ico">📊</span>
+          <span class="img-slot-lbl">Par operado</span>
+          <button class="img-slot-del" id="imgDel0" onclick="removeImg(event,0)">✕</button>
+        </div>
+        <div class="img-slot" id="imgSlot1" onclick="triggerImgUpload(1)">
+          <span class="img-slot-ico">🔗</span>
+          <span class="img-slot-lbl">Correlación</span>
+          <button class="img-slot-del" id="imgDel1" onclick="removeImg(event,1)">✕</button>
+        </div>
+        <div class="img-slot" id="imgSlot2" onclick="triggerImgUpload(2)">
+          <span class="img-slot-ico">🧠</span>
+          <span class="img-slot-lbl">SMT / Confirmación</span>
+          <button class="img-slot-del" id="imgDel2" onclick="removeImg(event,2)">✕</button>
+        </div>
+      </div>
+      <input type="file" id="fImagenMulti" accept="image/*" style="display:none" onchange="handleMultiImage(event)">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-clear" onclick="clearDay()">Borrar día</button>
+      <button class="btn-cancel" onclick="closeTradeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveDay()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- INTELLIGENCE PANEL -->
+<div class="intel-panel" id="intelPanel">
+  <div class="intel-box">
+    <div class="intel-header">
+      <div>
+        <div class="intel-title">◈ Inteligencia de Trading</div>
+        <div class="intel-sub">Análisis de patrones · Rendimiento por variable · Insights automáticos</div>
+      </div>
+      <button class="intel-close" onclick="closeIntel()">✕</button>
+    </div>
+    <div class="intel-tabs">
+      <button class="intel-tab active" onclick="switchIntelTab('dashboard')">Dashboard</button>
+      <button class="intel-tab" onclick="switchIntelTab('pares')">Por Par</button>
+      <button class="intel-tab" onclick="switchIntelTab('sesiones')">Por Sesión</button>
+      <button class="intel-tab" onclick="switchIntelTab('dias')">Por Día</button>
+      <button class="intel-tab" onclick="switchIntelTab('setups')">Por Setup</button>
+      <button class="intel-tab" onclick="switchIntelTab('insights')">Insights</button>
+    </div>
+    <div id="intelContent"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-date">Capital Inicial</div>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="form-label">Capital inicial ($)</label>
+      <input type="number" class="form-input" id="fCapitalInicial" placeholder="5000" step="0.01" style="font-family:var(--mono);font-size:18px">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">Cancelar</button>
+      <button class="btn-save" onclick="saveCapital()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="acct-modal-overlay" id="acctModal">
+  <div class="acct-modal">
+    <div class="acct-modal-title">
+      <span id="acctModalTitle">NUEVA CUENTA</span>
+      <button onclick="closeAcctModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div class="acct-form-grid">
+      <div>
+        <div class="acct-form-label">Broker / Firma</div>
+        <input class="acct-form-input" id="acctBroker" placeholder="Maven, FTMO, The5ers...">
+      </div>
+      <div>
+        <div class="acct-form-label">Balance Inicial ($)</div>
+        <input class="acct-form-input" id="acctBalance" type="number" placeholder="50000">
+      </div>
+      <div>
+        <div class="acct-form-label">Tipo</div>
+        <select class="acct-form-select" id="acctTipo">
+          <option value="challenge">Challenge</option>
+          <option value="funded">Funded</option>
+          <option value="personal">Personal</option>
+        </select>
+      </div>
+      <div>
+        <div class="acct-form-label">Fase</div>
+        <select class="acct-form-select" id="acctFase">
+          <option value="fase1">Fase 1</option>
+          <option value="fase2">Fase 2</option>
+          <option value="funded">Funded</option>
+          <option value="n/a">N/A</option>
+        </select>
+      </div>
+      <div>
+        <div class="acct-form-label">Max Drawdown (%)</div>
+        <input class="acct-form-input" id="acctMaxDD" type="number" placeholder="10" step="0.5">
+      </div>
+      <div>
+        <div class="acct-form-label">Profit Target (%)</div>
+        <input class="acct-form-input" id="acctTarget" type="number" placeholder="10" step="0.5">
+      </div>
+      <div class="acct-form-full">
+        <div class="acct-form-label">Etiqueta / Alias (opcional)</div>
+        <input class="acct-form-input" id="acctLabel" placeholder="Ej: Maven 50K — P1">
+      </div>
+    </div>
+    <div class="acct-modal-actions">
+      <button class="acct-btn-danger" id="acctDeleteBtn" onclick="deleteAccount()" style="display:none;margin-right:auto">Eliminar</button>
+      <button class="acct-btn-cancel" onclick="closeAcctModal()">Cancelar</button>
+      <button class="acct-btn-save" onclick="saveAccount()">Guardar cuenta</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONSOLIDADO PANEL -->
+<div class="consolidado-panel" id="consolidadoPanel">
+  <div class="consolidado-box">
+    <div class="cons-title">
+      <span>⊞ CONSOLIDADO GLOBAL — PORTAFOLIO</span>
+      <button onclick="closeConsolidado()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="consolidadoContent"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- App script — deferred for faster paint -->
+<script src="script.js" defer></script>
+</body>
+</html>

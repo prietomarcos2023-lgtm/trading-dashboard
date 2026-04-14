@@ -173,7 +173,7 @@ function renderSideAcctInfo() {
       <div class="acct-info-row"><span class="acct-info-key">Balance inicial</span><span class="acct-info-val">$${cap0.toLocaleString()}</span></div>
       <div class="acct-info-row"><span class="acct-info-key">Balance actual</span><span class="acct-info-val" style="color:${pnl>=0?'var(--win)':'var(--loss)'}">$${balActual.toFixed(2)}</span></div>
       <div class="acct-info-row"><span class="acct-info-key">P&L</span><span class="acct-info-val" style="color:${pnl>=0?'var(--win)':'var(--loss)'}">${pnl>=0?'+':''}$${pnl.toFixed(2)} (${dd>=0?'+':''}${dd.toFixed(2)}%)</span></div>
-      <div class="acct-info-row"><span class="acct-info-key">Progreso target</span><span class="acct-info-val">${Math.min(progPct,100).toFixed(0)}% de ${tgt}%</span></div>
+      <div class="acct-info-row"><span class="acct-info-key">Progreso target</span><span class="acct-info-val">${dd>=0?'+':''}${dd.toFixed(2)}% / ${tgt}%</span></div>
       <div class="acct-prog-bg" style="margin-top:8px"><div class="acct-prog-fill" style="width:${progPct}%;background:${progPct>=100?'var(--win)':'var(--gold)'}"></div></div>
       <div style="margin-top:7px">
         <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);margin-bottom:4px;letter-spacing:0.5px">

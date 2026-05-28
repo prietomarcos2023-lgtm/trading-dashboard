@@ -326,6 +326,7 @@ function openAcctModal(id) {
   document.getElementById('acctMaxDD').value    = acct?.maxDrawdown   || 10;
   document.getElementById('acctTarget').value   = acct?.target        || 10;
   document.getElementById('acctLabel').value    = acct?.label         || '';
+  // Mostrar botón eliminar para TODAS las cuentas incluyendo default
   document.getElementById('acctDeleteBtn').style.display = acct ? 'block' : 'none';
   document.getElementById('acctModal').classList.add('open');
 }
@@ -335,6 +336,7 @@ function closeAcctModal() {
   editingAcctId = null;
 }
 
+// ── FIX: saveAccount — guarda label correctamente incluyendo cuenta principal ──
 function saveAccount() {
   const broker = document.getElementById('acctBroker').value.trim();
   if (!broker) { alert('Ingresá el nombre del broker o firma.'); return; }
@@ -344,12 +346,17 @@ function saveAccount() {
   const fase    = document.getElementById('acctFase').value;
   const maxDD   = parseFloat(document.getElementById('acctMaxDD').value) || 10;
   const target  = parseFloat(document.getElementById('acctTarget').value) || 10;
-  const label   = document.getElementById('acctLabel').value.trim();
+  const label   = document.getElementById('acctLabel').value.trim() || broker;
 
   if (editingAcctId) {
     const idx = accounts.findIndex(a => a.id === editingAcctId);
     if (idx >= 0) {
       accounts[idx] = { ...accounts[idx], broker, balanceInicial: balance, tipo, fase, maxDrawdown: maxDD, target, label };
+      // Actualizar config de capital también
+      const cfg = loadAccountConfig(editingAcctId);
+      cfg.capital = balance;
+      saveAccountConfig(editingAcctId, cfg);
+      if (editingAcctId === activeAccountId) config.capital = balance;
     }
   } else {
     const newId = 'acct_' + Date.now();
@@ -364,20 +371,31 @@ function saveAccount() {
   renderAccountBar();
   renderSideAcctInfo();
   renderRiskCard();
-  toast('Cuenta guardada');
+  toast('Cuenta guardada ✓');
 }
 
+// ── FIX: deleteAccount — permite eliminar cualquier cuenta incluyendo default ──
 function deleteAccount() {
-  if (!editingAcctId || editingAcctId === 'default') { alert('No podés eliminar la cuenta principal.'); return; }
-  if (!confirm('¿Eliminar esta cuenta y todos sus datos?')) return;
+  if (!editingAcctId) return;
+  const acct = accounts.find(a => a.id === editingAcctId);
+  const label = acct?.label || acct?.broker || 'esta cuenta';
+  if (!confirm(`¿Eliminar "${label}" y todos sus datos?\n\nEsta acción no se puede deshacer.`)) return;
   const idx = accounts.findIndex(a => a.id === editingAcctId);
   if (idx >= 0) accounts.splice(idx, 1);
   localStorage.removeItem(getAccountDataKey(editingAcctId));
   localStorage.removeItem(getAccountConfigKey(editingAcctId));
+  // Si borramos la default, recrear una vacía para que el sistema no explote
+  if (editingAcctId === 'default') {
+    accounts.unshift({
+      id: 'default', broker: 'Personal', tipo: 'personal', fase: 'n/a',
+      balanceInicial: 5000, maxDrawdown: 10, target: 10,
+      label: 'Cuenta Principal', estado: 'activa', createdAt: new Date().toISOString()
+    });
+  }
   saveAccounts();
   closeAcctModal();
-  if (activeAccountId === editingAcctId) switchAccount('default');
-  else renderAccountBar();
+  const nextId = accounts.find(a => a.estado === 'activa')?.id || 'default';
+  switchAccount(nextId);
   toast('Cuenta eliminada');
 }
 
@@ -787,15 +805,34 @@ function openDayModal(k) {
   setTimeout(() => document.getElementById('fResultado').focus(), 100);
 }
 
+// ── FIX: viewImg — ver imagen en pantalla completa ──
+function viewImg(src) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  overlay.innerHTML = `
+    <img src="${src}" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 0 60px rgba(0,0,0,0.9)">
+    <div style="position:fixed;top:18px;right:24px;color:white;font-size:26px;cursor:pointer;opacity:0.7;line-height:1">✕</div>`;
+  overlay.onclick = () => document.body.removeChild(overlay);
+  document.body.appendChild(overlay);
+}
+
+// ── FIX: renderImgSlots — click en imagen abre viewer, no upload ──
 function renderImgSlots() {
   const labels = ['Par operado', 'Correlación', 'SMT / Confirmación'];
   const icons  = ['📊', '🔗', '🧠'];
   for (let i = 0; i < 3; i++) {
     const slot = document.getElementById(`imgSlot${i}`);
     if (currentImages[i]) {
-      slot.innerHTML = `<img src="${currentImages[i]}" alt="img${i}"><button class="img-slot-del" id="imgDel${i}" onclick="removeImg(event,${i})">✕</button>`;
+      const src = currentImages[i];
+      slot.innerHTML = `
+        <img src="${src}" alt="img${i}"
+          style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;border-radius:6px"
+          onclick="event.stopPropagation();viewImg('${src}')">
+        <button class="img-slot-del" onclick="removeImg(event,${i})">✕</button>`;
     } else {
-      slot.innerHTML = `<span class="img-slot-ico">${icons[i]}</span><span class="img-slot-lbl">${labels[i]}</span><button class="img-slot-del" id="imgDel${i}" onclick="removeImg(event,${i})">✕</button>`;
+      slot.innerHTML = `
+        <span class="img-slot-ico">${icons[i]}</span>
+        <span class="img-slot-lbl">${labels[i]}</span>`;
     }
   }
 }
@@ -903,9 +940,7 @@ function saveCapital() {
 // ══════════════════════════════════════════════════
 
 function exportBackup() {
-  // Collect ALL localStorage keys belonging to this app
   const backup = { _version: 1, _exportedAt: new Date().toISOString(), data: {} };
-
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (k && (
@@ -918,7 +953,6 @@ function exportBackup() {
       backup.data[k] = localStorage.getItem(k);
     }
   }
-
   const json     = JSON.stringify(backup, null, 2);
   const blob     = new Blob([json], { type: 'application/json' });
   const url      = URL.createObjectURL(blob);
@@ -949,12 +983,9 @@ function importBackup() {
           return;
         }
         if (!confirm(`¿Restaurar backup del ${backup._exportedAt?.slice(0,10) || 'fecha desconocida'}?\n\nATENCIÓN: Esto reemplazará todos los datos actuales.`)) return;
-
-        // Restore all keys
         Object.entries(backup.data).forEach(([k, v]) => {
           localStorage.setItem(k, v);
         });
-
         toast('✓ Backup restaurado — recargando…');
         setTimeout(() => location.reload(), 1200);
       } catch(err) {
@@ -1139,7 +1170,7 @@ function renderIntelInsights(p) {
 
   const exec = p.porExec.filter(r=>r.trades>=2);
   if (exec.length) {
-    const buenas     = exec.find(r=>r.name==='buena');
+    const buenas      = exec.find(r=>r.name==='buena');
     const emocionales = exec.find(r=>r.name==='emocional');
     if (buenas && emocionales) {
       ins.push({ico:'🎯', txt:`Ejecuciones <strong>buenas</strong>: ${buenas.winRate.toFixed(0)}% WR. Ejecuciones <strong>emocionales</strong>: ${emocionales.winRate.toFixed(0)}% WR. Diferencia: ${Math.abs(buenas.winRate - emocionales.winRate).toFixed(0)} puntos.`});
@@ -1197,3 +1228,26 @@ renderCalendar();
 renderSideAcctInfo();
 renderRiskCard();
 window.addEventListener('resize', drawEquityChart);
+
+
+
+ 
+
+
+
+     
+
+ 
+
+
+
+
+    
+
+
+ 
+
+
+
+
+      

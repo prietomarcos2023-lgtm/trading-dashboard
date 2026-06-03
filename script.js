@@ -1,74 +1,64 @@
 // ══════════════════════════════════════════════════
-// MAREBLU TRADING JOURNAL · PORTFOLIO ENGINE v4
-// Design: Formatum Divinum Noir Edition
+// MAREBLU TRADING JOURNAL · PORTFOLIO ENGINE v4.1
+// Multi-Trade per Day Edition
 // ══════════════════════════════════════════════════
 
-// ── LS KEYS ──
 const LS_ACCOUNTS    = 'mtj_accounts_v1';
 const LS_DATA_PFX    = 'mtj_data_';
 const LS_CFG_PFX     = 'mtj_cfg_';
 const LS_DATA_LEGACY = 'mtj_data';
 const LS_CFG_LEGACY  = 'mtj_config';
 
-// ── MULTI-ACCOUNT STATE ──
 let accounts        = [];
 let activeAccountId = 'default';
 let viewMode        = 'single';
+let data            = {};
+let config          = { capital: 5000 };
+let curYear         = new Date().getFullYear();
+let curMonth        = new Date().getMonth();
+let activeDay       = null;
+let curFilter       = 'all';
+const TODAY         = new Date().toISOString().split('T')[0];
 
-// ── PER-ACCOUNT STATE ──
-let data      = {};
-let config    = { capital: 5000 };
-let curYear   = new Date().getFullYear();
-let curMonth  = new Date().getMonth();
-let activeDay = null;
-let curFilter = 'all';
-const TODAY   = new Date().toISOString().split('T')[0];
+// ── MULTI-TRADE STATE ──
+// currentDayTrades: array of up to 3 trade objects
+// Each trade: { type, result, pair, session, executionType, setupType, setup, notas, images:[img0,img1] }
+let currentDayTrades = [];
+let activeTradeTab   = 0;
+let activeImgSlot    = 0;   // 0 or 1 per trade
+
+const EMPTY_TRADE = () => ({
+  type: null, result: '', pair: '', session: '',
+  executionType: '', setupType: '', setup: '', notas: '',
+  images: [null, null]   // 2 images per trade
+});
 
 // ══════════════════════════════════════════════════
-// ACCOUNT MANAGEMENT
+// ACCOUNT MANAGEMENT (unchanged)
 // ══════════════════════════════════════════════════
 
 function loadAccounts() {
-  try {
-    const raw = localStorage.getItem(LS_ACCOUNTS);
-    accounts = raw ? JSON.parse(raw) : [];
-  } catch(e) { accounts = []; }
+  try { const r = localStorage.getItem(LS_ACCOUNTS); accounts = r ? JSON.parse(r) : []; }
+  catch(e) { accounts = []; }
 }
-
-function saveAccounts() {
-  localStorage.setItem(LS_ACCOUNTS, JSON.stringify(accounts));
-}
-
+function saveAccounts() { localStorage.setItem(LS_ACCOUNTS, JSON.stringify(accounts)); }
 function getAccountDataKey(id)   { return LS_DATA_PFX + id; }
 function getAccountConfigKey(id) { return LS_CFG_PFX  + id; }
-
 function loadAccountData(id) {
-  try {
-    const raw = localStorage.getItem(getAccountDataKey(id));
-    return raw ? JSON.parse(raw) : {};
-  } catch(e) { return {}; }
+  try { const r = localStorage.getItem(getAccountDataKey(id)); return r ? JSON.parse(r) : {}; }
+  catch(e) { return {}; }
 }
-
 function loadAccountConfig(id) {
-  try {
-    const raw = localStorage.getItem(getAccountConfigKey(id));
-    return raw ? JSON.parse(raw) : { capital: 5000 };
-  } catch(e) { return { capital: 5000 }; }
+  try { const r = localStorage.getItem(getAccountConfigKey(id)); return r ? JSON.parse(r) : { capital: 5000 }; }
+  catch(e) { return { capital: 5000 }; }
 }
-
-function saveAccountData(id, d) {
-  localStorage.setItem(getAccountDataKey(id), JSON.stringify(d));
-}
-
-function saveAccountConfig(id, c) {
-  localStorage.setItem(getAccountConfigKey(id), JSON.stringify(c));
-}
+function saveAccountData(id, d) { localStorage.setItem(getAccountDataKey(id), JSON.stringify(d)); }
+function saveAccountConfig(id, c) { localStorage.setItem(getAccountConfigKey(id), JSON.stringify(c)); }
 
 function migrateToMultiAccount() {
   const legacyData = localStorage.getItem(LS_DATA_LEGACY);
   const legacyCfg  = localStorage.getItem(LS_CFG_LEGACY);
   const alreadyMigrated = accounts.some(a => a.id === 'default');
-
   if (legacyData && !alreadyMigrated) {
     const defaultAccount = {
       id: 'default', broker: 'Personal', tipo: 'personal', fase: 'n/a',
@@ -90,7 +80,6 @@ function migrateToMultiAccount() {
       localStorage.setItem(getAccountDataKey('default'), JSON.stringify(d));
     } catch(e) {}
   }
-
   if (accounts.length === 0) {
     accounts.push({
       id: 'default', broker: 'Personal', tipo: 'personal', fase: 'n/a',
@@ -111,14 +100,6 @@ function switchAccount(id) {
   migrateAllData();
   renderAccountBar();
   renderCalendar();
-  renderSideAcctInfo();
-  renderRiskCard();
-}
-
-function switchToGlobal() {
-  viewMode = 'global';
-  renderAccountBar();
-  renderCalendarGlobal();
   renderSideAcctInfo();
   renderRiskCard();
 }
@@ -150,9 +131,8 @@ function renderSideAcctInfo() {
   }
   const acct = accounts.find(a => a.id === activeAccountId);
   if (!acct) return;
-
-  const cap0     = acct.balanceInicial || 5000;
-  const pnl      = Object.values(data).filter(e => e?.result !== '' && e?.result !== undefined).reduce((s,e) => s + Number(e.result||0), 0);
+  const cap0      = acct.balanceInicial || 5000;
+  const pnl       = Object.values(data).filter(e => e?.totalResult !== undefined).reduce((s,e) => s + Number(e.totalResult||0), 0);
   const balActual = cap0 + pnl;
   const dd        = ((pnl / cap0) * 100);
   const maxDD     = acct.maxDrawdown || 10;
@@ -162,7 +142,6 @@ function renderSideAcctInfo() {
   const progPct   = Math.min(100, Math.max(0, (dd / tgt) * 100));
   const label     = acct.label || `${acct.broker} ${acct.fase !== 'n/a' ? acct.fase : ''}`.trim();
   const tipoLabel = acct.tipo === 'funded' ? 'FUNDED' : acct.tipo === 'challenge' ? 'CHALLENGE' : 'PERSONAL';
-
   el.innerHTML = `
     <div class="s-label">Cuenta activa</div>
     <div class="acct-info-card">
@@ -182,8 +161,7 @@ function renderSideAcctInfo() {
         </div>
         <div class="dd-track"><div class="dd-fill" style="width:${ddPct}%;background:${ddPct>70?'var(--loss)':ddPct>40?'var(--gold)':'var(--text2)'}"></div></div>
       </div>
-    </div>
-  `;
+    </div>`;
 }
 
 // ══════════════════════════════════════════════════
@@ -193,11 +171,9 @@ function renderSideAcctInfo() {
 function calcularRiesgoCuenta(acct) {
   const cap0  = acct.balanceInicial || 5000;
   const d     = loadAccountData(acct.id);
-  const pnl   = Object.values(d).filter(e=>e?.result!==''&&e?.result!==undefined).reduce((s,e)=>s+Number(e.result||0),0);
+  const pnl   = Object.values(d).filter(e=>e?.totalResult!==undefined).reduce((s,e)=>s+Number(e.totalResult||0),0);
   const ddPct = (pnl / cap0) * 100;
-
   let modo, riskPct, rrMin, mensaje, cssClass;
-
   if (ddPct < -3) {
     modo = 'DEFENSIVO'; riskPct = 0.5; rrMin = '1:2'; cssClass = 'risk-defensivo';
     mensaje = 'Protegé el capital. Prioridad: sobrevivir. Sin operar por FOMO.';
@@ -208,7 +184,6 @@ function calcularRiesgoCuenta(acct) {
     modo = 'AGRESIVO CONTROLADO'; riskPct = 1.0; rrMin = '1:1.5'; cssClass = 'risk-agresivo';
     mensaje = 'Estás en ganancia. Podés crecer, pero sin salirte del plan. Capital protegido.';
   }
-
   const riskDollar = (cap0 * riskPct / 100);
   return { modo, riskPct, rrMin, mensaje, cssClass, riskDollar, ddPct, pnl };
 }
@@ -216,15 +191,12 @@ function calcularRiesgoCuenta(acct) {
 function renderRiskCard() {
   const el = document.getElementById('riskCard');
   if (!el) return;
-
   if (viewMode === 'global') {
     el.innerHTML = '<div class="risk-card risk-neutro"><div class="risk-mode">VISTA GLOBAL</div><div class="risk-dollar">Seleccioná una cuenta para ver el motor de riesgo.</div></div>';
     return;
   }
-
   const acct = accounts.find(a => a.id === activeAccountId);
   if (!acct) return;
-
   const r = calcularRiesgoCuenta(acct);
   el.innerHTML = `
     <div class="risk-card ${r.cssClass}">
@@ -241,181 +213,12 @@ function renderRiskCard() {
 }
 
 // ══════════════════════════════════════════════════
-// CONSOLIDADO GLOBAL
-// ══════════════════════════════════════════════════
-
-function openConsolidado() {
-  renderConsolidado();
-  document.getElementById('consolidadoPanel').classList.add('open');
-}
-function closeConsolidado() {
-  document.getElementById('consolidadoPanel').classList.remove('open');
-}
-
-function renderConsolidado() {
-  const el = document.getElementById('consolidadoContent');
-  if (!el) return;
-
-  const activeAccts = accounts.filter(a => a.estado === 'activa');
-  let totalPnl = 0, totalTrades = 0, totalWins = 0;
-
-  const rows = activeAccts.map(acct => {
-    const d      = loadAccountData(acct.id);
-    const entries = Object.values(d).filter(e => e?.result !== '' && e?.result !== undefined);
-    const pnl    = entries.reduce((s,e) => s + Number(e.result||0), 0);
-    const wins   = entries.filter(e => Number(e.result) > 0).length;
-    const trades = entries.length;
-    const wr     = trades ? (wins/trades*100) : 0;
-    const cap0   = acct.balanceInicial || 5000;
-    const r      = calcularRiesgoCuenta(acct);
-
-    totalPnl    += pnl;
-    totalTrades += trades;
-    totalWins   += wins;
-
-    const tipoClass = acct.tipo === 'funded' ? 'cons-funded' : acct.tipo === 'challenge' ? 'cons-challenge' : 'cons-personal';
-    const label     = acct.label || `${acct.broker} ${acct.fase !== 'n/a' ? acct.fase : ''}`.trim();
-
-    return `<div class="cons-acct-row">
-      <div>
-        <div class="cons-broker">${esc(label)}</div>
-        <div style="font-size:9px;color:var(--muted)">${acct.broker}</div>
-      </div>
-      <div><span class="cons-tipo ${tipoClass}">${acct.tipo.toUpperCase()}</span></div>
-      <div style="font-family:var(--mono);font-weight:700;font-size:11px;color:${pnl>=0?'var(--win)':'var(--loss)'}">${pnl>=0?'+':''}$${pnl.toFixed(2)}</div>
-      <div style="font-family:var(--mono);font-size:10px;color:var(--text2)">${wr.toFixed(0)}%</div>
-      <div style="font-size:9px;font-family:var(--mono)"><span style="font-size:8px;font-weight:700;letter-spacing:1px;color:${r.modo==='DEFENSIVO'?'var(--loss)':r.modo==='NEUTRO'?'var(--gold)':'var(--win)'}">${r.modo}</span></div>
-      <div style="font-size:10px;color:var(--muted)">${trades} ops</div>
-    </div>`;
-  }).join('');
-
-  const globalWr = totalTrades ? (totalWins/totalTrades*100) : 0;
-
-  el.innerHTML = `
-    <div class="cons-grid">
-      <div class="cons-kpi"><div class="cons-kpi-lbl">PnL Global</div><div class="cons-kpi-val" style="color:${totalPnl>=0?'var(--win)':'var(--loss)'}">${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</div><div class="cons-kpi-sub">Todas las cuentas activas</div></div>
-      <div class="cons-kpi"><div class="cons-kpi-lbl">Cuentas activas</div><div class="cons-kpi-val">${activeAccts.length}</div><div class="cons-kpi-sub">${accounts.filter(a=>a.estado==='inactiva').length} inactivas</div></div>
-      <div class="cons-kpi"><div class="cons-kpi-lbl">Total Trades</div><div class="cons-kpi-val">${totalTrades}</div><div class="cons-kpi-sub">Todas las cuentas</div></div>
-      <div class="cons-kpi"><div class="cons-kpi-lbl">Win Rate Global</div><div class="cons-kpi-val">${globalWr.toFixed(0)}%</div><div class="cons-kpi-sub">${totalWins} ganadores</div></div>
-    </div>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
-      <div class="cons-acct-row header">
-        <div>Cuenta</div><div>Tipo</div><div>P&L</div><div>WR</div><div>Modo</div><div>Trades</div>
-      </div>
-      ${rows || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">No hay cuentas activas.</div>'}
-    </div>
-    <div style="margin-top:10px;font-size:9px;color:var(--muted);text-align:right;letter-spacing:0.3px">
-      PnL global actualizado en tiempo real · ${new Date().toLocaleString('es-PY')}
-    </div>`;
-}
-
-// ══════════════════════════════════════════════════
-// ACCOUNT CRUD MODAL
-// ══════════════════════════════════════════════════
-
-let editingAcctId = null;
-
-function openAcctModal(id) {
-  editingAcctId = id;
-  const acct = id ? accounts.find(a => a.id === id) : null;
-  document.getElementById('acctModalTitle').textContent = acct ? 'EDITAR CUENTA' : 'NUEVA CUENTA';
-  document.getElementById('acctBroker').value   = acct?.broker        || '';
-  document.getElementById('acctBalance').value  = acct?.balanceInicial|| '';
-  document.getElementById('acctTipo').value     = acct?.tipo          || 'challenge';
-  document.getElementById('acctFase').value     = acct?.fase          || 'fase1';
-  document.getElementById('acctMaxDD').value    = acct?.maxDrawdown   || 10;
-  document.getElementById('acctTarget').value   = acct?.target        || 10;
-  document.getElementById('acctLabel').value    = acct?.label         || '';
-  // Mostrar botón eliminar para TODAS las cuentas incluyendo default
-  document.getElementById('acctDeleteBtn').style.display = acct ? 'block' : 'none';
-  document.getElementById('acctModal').classList.add('open');
-}
-
-function closeAcctModal() {
-  document.getElementById('acctModal').classList.remove('open');
-  editingAcctId = null;
-}
-
-// ── FIX: saveAccount — guarda label correctamente incluyendo cuenta principal ──
-function saveAccount() {
-  const broker = document.getElementById('acctBroker').value.trim();
-  if (!broker) { alert('Ingresá el nombre del broker o firma.'); return; }
-
-  const balance = parseFloat(document.getElementById('acctBalance').value) || 5000;
-  const tipo    = document.getElementById('acctTipo').value;
-  const fase    = document.getElementById('acctFase').value;
-  const maxDD   = parseFloat(document.getElementById('acctMaxDD').value) || 10;
-  const target  = parseFloat(document.getElementById('acctTarget').value) || 10;
-  const label   = document.getElementById('acctLabel').value.trim() || broker;
-
-  if (editingAcctId) {
-    const idx = accounts.findIndex(a => a.id === editingAcctId);
-    if (idx >= 0) {
-      accounts[idx] = { ...accounts[idx], broker, balanceInicial: balance, tipo, fase, maxDrawdown: maxDD, target, label };
-      // Actualizar config de capital también
-      const cfg = loadAccountConfig(editingAcctId);
-      cfg.capital = balance;
-      saveAccountConfig(editingAcctId, cfg);
-      if (editingAcctId === activeAccountId) config.capital = balance;
-    }
-  } else {
-    const newId = 'acct_' + Date.now();
-    accounts.push({
-      id: newId, broker, balanceInicial: balance, tipo, fase,
-      maxDrawdown: maxDD, target, label, estado: 'activa',
-      createdAt: new Date().toISOString()
-    });
-  }
-  saveAccounts();
-  closeAcctModal();
-  renderAccountBar();
-  renderSideAcctInfo();
-  renderRiskCard();
-  toast('Cuenta guardada ✓');
-}
-
-// ── FIX: deleteAccount — permite eliminar cualquier cuenta incluyendo default ──
-function deleteAccount() {
-  if (!editingAcctId) return;
-  const acct = accounts.find(a => a.id === editingAcctId);
-  const label = acct?.label || acct?.broker || 'esta cuenta';
-  if (!confirm(`¿Eliminar "${label}" y todos sus datos?\n\nEsta acción no se puede deshacer.`)) return;
-  const idx = accounts.findIndex(a => a.id === editingAcctId);
-  if (idx >= 0) accounts.splice(idx, 1);
-  localStorage.removeItem(getAccountDataKey(editingAcctId));
-  localStorage.removeItem(getAccountConfigKey(editingAcctId));
-  // Si borramos la default, recrear una vacía para que el sistema no explote
-  if (editingAcctId === 'default') {
-    accounts.unshift({
-      id: 'default', broker: 'Personal', tipo: 'personal', fase: 'n/a',
-      balanceInicial: 5000, maxDrawdown: 10, target: 10,
-      label: 'Cuenta Principal', estado: 'activa', createdAt: new Date().toISOString()
-    });
-  }
-  saveAccounts();
-  closeAcctModal();
-  const nextId = accounts.find(a => a.estado === 'activa')?.id || 'default';
-  switchAccount(nextId);
-  toast('Cuenta eliminada');
-}
-
-// ══════════════════════════════════════════════════
 // DATA MANAGEMENT
 // ══════════════════════════════════════════════════
 
 function key(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
-
-function fmt$(n) {
-  const v = Number(n);
-  const s = Math.abs(v).toFixed(2);
-  return (v >= 0 ? '+$' : '-$') + s;
-}
-
-function fmtP(n) {
-  const v = Number(n);
-  return (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
-}
-
+function fmt$(n) { const v = Number(n); return (v >= 0 ? '+$' : '-$') + Math.abs(v).toFixed(2); }
+function fmtP(n) { const v = Number(n); return (v >= 0 ? '+' : '') + v.toFixed(2) + '%'; }
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -423,8 +226,12 @@ function toast(msg) {
   setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ── MIGRATION: old single-trade entries → new multi-trade format ──
 function migrateEntry(e) {
   if (!e) return null;
+  // Already new format
+  if (e.trades && Array.isArray(e.trades)) return e;
+  // Old format migration
   const m = { ...e };
   if (m.ganado !== undefined && m.result === undefined) {
     m.result  = m.ganado ? Math.abs(Number(m.pnl||0)) : -Math.abs(Number(m.pnl||0));
@@ -433,19 +240,55 @@ function migrateEntry(e) {
     m.session = m.sesion || m.session || '';
   }
   if (m.img && !m.images) m.images = [m.img];
-  return m;
+  // Wrap old single trade into new multi-trade structure
+  const t1 = {
+    type:          m.type || null,
+    result:        m.result !== undefined ? String(m.result) : '',
+    pair:          m.pair || '',
+    session:       m.session || '',
+    executionType: m.executionType || '',
+    setupType:     m.setupType || '',
+    setup:         m.setup || '',
+    notas:         m.notas || '',
+    images:        [m.images?.[0]||null, m.images?.[1]||null]
+  };
+  const totalResult = t1.result !== '' ? parseFloat(t1.result) : 0;
+  return {
+    trades:       [t1],
+    totalResult,
+    weekday:      m.weekday || '',
+    accountId:    m.accountId || activeAccountId,
+    // Legacy compatibility
+    result:       totalResult,
+    type:         t1.type,
+    pair:         t1.pair,
+    session:      t1.session,
+  };
 }
 
 function migrateAllData() {
   let changed = false;
   Object.keys(data).forEach(k => {
     const e = data[k];
-    if (e && e.ganado !== undefined && e.result === undefined) {
+    if (e && !Array.isArray(e.trades)) {
       data[k] = migrateEntry(e);
       changed = true;
     }
   });
   if (changed) saveAccountData(activeAccountId, data);
+}
+
+function getDayTotalResult(entry) {
+  if (!entry) return null;
+  if (entry.totalResult !== undefined) return entry.totalResult;
+  if (entry.result !== undefined && entry.result !== '') return Number(entry.result);
+  return null;
+}
+
+function getDayActiveTrades(entry) {
+  if (!entry) return [];
+  if (Array.isArray(entry.trades)) return entry.trades.filter(t => t.result !== '' && t.result !== undefined && t.result !== null);
+  return [];
 }
 
 function getMonthEntries(y, m) {
@@ -459,19 +302,43 @@ function getAllEntries() {
   return Object.entries(data).map(([k,v]) => ({ ...migrateEntry(v), _key: k }));
 }
 
+// Flatten all individual trades from all days for intelligence analysis
+function getAllIndividualTrades() {
+  const result = [];
+  Object.entries(data).forEach(([k, v]) => {
+    const entry = migrateEntry(v);
+    if (!entry) return;
+    const trades = entry.trades || [];
+    trades.forEach((t, i) => {
+      if (t.result !== '' && t.result !== undefined) {
+        result.push({
+          ...t,
+          _dayKey: k,
+          _tradeIndex: i,
+          weekday: entry.weekday || '',
+          result: parseFloat(t.result) || 0,
+        });
+      }
+    });
+  });
+  return result;
+}
+
 function calcStats() {
   const cap0    = config.capital || 5000;
-  const entries = Object.values(data).map(migrateEntry);
-  const traded  = entries.filter(e => e.result !== undefined && e.result !== null && e.result !== '');
-  const totalPnl  = traded.reduce((s, e) => s + Number(e.result||0), 0);
-  const wins      = traded.filter(e => Number(e.result||0) > 0);
-  const losses    = traded.filter(e => Number(e.result||0) < 0);
-  const totalTrades = traded.reduce((s,e) => s + (Number(e.trades)||1), 0);
-  const winRate   = traded.length ? (wins.length / traded.length * 100) : 0;
+  const entries = Object.values(data).map(migrateEntry).filter(Boolean);
+  const tradedDays = entries.filter(e => getDayTotalResult(e) !== null);
+  const totalPnl   = tradedDays.reduce((s,e) => s + (getDayTotalResult(e)||0), 0);
+
+  // Win/loss counted per individual trade
+  const allTrades  = getAllIndividualTrades();
+  const wins       = allTrades.filter(t => t.result > 0);
+  const losses     = allTrades.filter(t => t.result < 0);
+  const winRate    = allTrades.length ? (wins.length / allTrades.length * 100) : 0;
 
   const monthEntries = getMonthEntries(curYear, curMonth);
-  const monthTraded  = monthEntries.filter(e => e.result !== undefined && e.result !== '');
-  const monthPnl     = monthTraded.reduce((s,e) => s + Number(e.result||0), 0);
+  const monthTraded  = monthEntries.filter(e => getDayTotalResult(e) !== null);
+  const monthPnl     = monthTraded.reduce((s,e) => s + (getDayTotalResult(e)||0), 0);
   const monthPct     = cap0 ? (monthPnl / cap0 * 100) : 0;
 
   const now = new Date();
@@ -481,18 +348,22 @@ function calcStats() {
     const d = new Date(startOfWeek); d.setDate(d.getDate() + i);
     weekKeys.push(d.toISOString().split('T')[0]);
   }
-  const weekPnl = weekKeys.reduce((s,k) => s + Number(data[k]?.result||0), 0);
+  const weekPnl = weekKeys.reduce((s,k) => {
+    const e = data[k] ? migrateEntry(data[k]) : null;
+    return s + (getDayTotalResult(e)||0);
+  }, 0);
   const weekPct = cap0 ? (weekPnl / cap0 * 100) : 0;
 
-  const todayPnl = Number(data[TODAY]?.result||0);
-  const todayPct = cap0 ? (todayPnl / cap0 * 100) : 0;
+  const todayEntry = data[TODAY] ? migrateEntry(data[TODAY]) : null;
+  const todayPnl   = getDayTotalResult(todayEntry) || 0;
+  const todayPct   = cap0 ? (todayPnl / cap0 * 100) : 0;
 
   const sortedDays = Object.keys(data).sort();
   let streak = 0, streakType = null;
   for (let i = sortedDays.length - 1; i >= 0; i--) {
-    const e = data[sortedDays[i]];
-    if (!e || e.result === '' || e.result === undefined) break;
-    const r = Number(e.result);
+    const e = migrateEntry(data[sortedDays[i]]);
+    const r = getDayTotalResult(e);
+    if (r === null) break;
     if (i === sortedDays.length - 1) streakType = r >= 0 ? 'win' : 'loss';
     if ((streakType === 'win' && r >= 0) || (streakType === 'loss' && r < 0)) streak++;
     else break;
@@ -500,16 +371,17 @@ function calcStats() {
 
   let best = null, worst = null;
   monthTraded.forEach(e => {
-    const r = Number(e.result);
+    const r = getDayTotalResult(e);
+    if (r === null) return;
     if (best === null || r > best) best = r;
     if (worst === null || r < worst) worst = r;
   });
-  const greenDays = monthTraded.filter(e => Number(e.result||0) > 0).length;
-  const redDays   = monthTraded.filter(e => Number(e.result||0) < 0).length;
+  const greenDays = monthTraded.filter(e => (getDayTotalResult(e)||0) > 0).length;
+  const redDays   = monthTraded.filter(e => (getDayTotalResult(e)||0) < 0).length;
 
-  return { cap0, totalPnl, wins, losses, totalTrades, winRate, monthPnl, monthPct,
-           weekPct, todayPct, streak, streakType, best, worst,
-           greenDays, redDays, monthTraded };
+  return { cap0, totalPnl, wins, losses, totalTrades: allTrades.length, winRate,
+           monthPnl, monthPct, weekPct, todayPct, streak, streakType,
+           best, worst, greenDays, redDays, monthTraded };
 }
 
 function updateSidebar() {
@@ -571,11 +443,10 @@ function drawConsistency() {
   for (let i = 0; i < 7; i++) {
     const d = new Date(startOfWeek); d.setDate(d.getDate() + i);
     const k = d.toISOString().split('T')[0];
-    const e = data[k];
+    const e = data[k] ? migrateEntry(data[k]) : null;
+    const r = getDayTotalResult(e);
     let color = 'var(--border2)';
-    if (e && e.result !== '' && e.result !== undefined) {
-      color = Number(e.result) >= 0 ? 'rgba(62,207,122,0.5)' : 'rgba(224,85,85,0.5)';
-    }
+    if (r !== null) color = r >= 0 ? 'rgba(62,207,122,0.5)' : 'rgba(224,85,85,0.5)';
     html += `<div class="cons-dot" title="${k}" style="background:${color}"></div>`;
   }
   document.getElementById('consistencyDots').innerHTML = html;
@@ -596,11 +467,9 @@ function drawEquityChart() {
   let cumPnl = 0;
   const points = [{ pnl: 0 }];
   sorted.forEach(k => {
-    const e = data[k];
-    if (e && e.result !== '' && e.result !== undefined) {
-      cumPnl += Number(e.result);
-      points.push({ pnl: cumPnl });
-    }
+    const e = data[k] ? migrateEntry(data[k]) : null;
+    const r = getDayTotalResult(e);
+    if (r !== null) { cumPnl += r; points.push({ pnl: cumPnl }); }
   });
 
   if (points.length < 2) {
@@ -641,7 +510,10 @@ function drawEquityChart() {
   ctx.stroke();
 }
 
-// ── GLOBAL CALENDAR VIEW ──
+// ══════════════════════════════════════════════════
+// CALENDAR
+// ══════════════════════════════════════════════════
+
 function renderCalendarGlobal() {
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('monthTitle').textContent = `${meses[curMonth]} ${curYear} — Vista Global`;
@@ -656,24 +528,21 @@ function renderCalendarGlobal() {
     let totalPnl = 0, hasAny = false;
     accounts.filter(a=>a.estado==='activa').forEach(a => {
       const d2 = loadAccountData(a.id);
-      const e  = d2[k];
-      if (e && e.result !== '' && e.result !== undefined) {
-        totalPnl += Number(e.result||0);
-        hasAny = true;
-      }
+      const e  = d2[k] ? migrateEntry(d2[k]) : null;
+      const r  = getDayTotalResult(e);
+      if (r !== null) { totalPnl += r; hasAny = true; }
     });
     const isToday = k === TODAY;
     let cls = 'day-cell';
     if (isToday) cls += ' today';
     if (hasAny && totalPnl > 0) cls += ' win-day';
     if (hasAny && totalPnl < 0) cls += ' loss-day';
-    const resultHtml = hasAny ? `<div class="day-result ${totalPnl>=0?'pos':'neg'}" style="font-family:var(--mono);font-size:10px">${fmt$(totalPnl)}</div>` : '';
+    const resultHtml = hasAny ? `<div class="day-result ${totalPnl>=0?'pos':'neg'}">${fmt$(totalPnl)}</div>` : '';
     html += `<div class="${cls}"><div class="day-num">${d}</div>${resultHtml}</div>`;
   }
   document.getElementById('calendar').innerHTML = html;
 }
 
-// ── CALENDAR ──
 function renderCalendar() {
   if (viewMode === 'global') { renderCalendarGlobal(); return; }
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -682,14 +551,18 @@ function renderCalendar() {
   const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
 
   const monthEntries = getMonthEntries(curYear, curMonth);
-  const traded = monthEntries.filter(e => e.result !== undefined && e.result !== '');
+  const traded = monthEntries.filter(e => getDayTotalResult(e) !== null);
   document.getElementById('monthTitle').textContent = `${meses[curMonth]} ${curYear}`;
-  document.getElementById('monthSub').textContent   = `${traded.length} operación${traded.length !== 1 ? 'es' : ''} registrada${traded.length !== 1 ? 's' : ''}`;
+
+  // Count total individual trades in month
+  let totalMonthTrades = 0;
+  traded.forEach(e => { totalMonthTrades += (e.trades||[]).filter(t=>t.result!=='').length; });
+  document.getElementById('monthSub').textContent = `${totalMonthTrades} trade${totalMonthTrades !== 1 ? 's' : ''} registrado${totalMonthTrades !== 1 ? 's' : ''}`;
 
   let best = null, worst = null;
   monthEntries.forEach(e => {
-    if (e.result === '' || e.result === undefined) return;
-    const r = Number(e.result);
+    const r = getDayTotalResult(e);
+    if (r === null) return;
     if (best === null || r > best) best = r;
     if (worst === null || r < worst) worst = r;
   });
@@ -699,11 +572,11 @@ function renderCalendar() {
 
   for (let d = 1; d <= daysInMonth; d++) {
     const k       = key(curYear, curMonth, d);
-    const e       = migrateEntry(data[k] || null);
+    const rawEntry = data[k] || null;
+    const e       = rawEntry ? migrateEntry(rawEntry) : null;
     const isToday = k === TODAY;
-    const result  = e?.result;
-    const hasData = result !== undefined && result !== null && result !== '';
-    const r       = hasData ? Number(result) : 0;
+    const r       = getDayTotalResult(e);
+    const hasData = r !== null;
     const isWin   = hasData && r > 0;
     const isLoss  = hasData && r < 0;
 
@@ -719,23 +592,35 @@ function renderCalendar() {
     if (hasData && r === best  && best  > 0) classes += ' best-day';
     if (hasData && r === worst && worst < 0) classes += ' worst-day';
 
-    const resultHtml = hasData ? `<div class="day-result ${r >= 0 ? 'pos' : 'neg'}" style="font-family:var(--mono);font-size:10px">${fmt$(r)}</div>` : '';
-    const pairHtml   = e?.pair ? `<div style="font-size:7px;color:var(--gold);opacity:0.7;margin-top:1px;font-family:var(--mono);letter-spacing:0.3px">${e.pair}</div>` : '';
+    const resultHtml = hasData ? `<div class="day-result ${r >= 0 ? 'pos' : 'neg'}">${fmt$(r)}</div>` : '';
 
+    // Show active trades count + pairs
+    const activeTrades = getDayActiveTrades(e);
+    const tradeCountHtml = activeTrades.length > 1
+      ? `<div style="font-size:7px;color:var(--muted);font-family:var(--mono)">${activeTrades.length} trades</div>`
+      : '';
+    const pairs = [...new Set(activeTrades.map(t=>t.pair).filter(Boolean))];
+    const pairHtml = pairs.length ? `<div style="font-size:7px;color:var(--gold);opacity:0.7;margin-top:1px;font-family:var(--mono);letter-spacing:0.3px">${pairs.join('·')}</div>` : '';
+
+    // Badge: show combo (TP, SL, TP+SL, etc.)
     let badgeHtml = '';
-    if (e?.type === 'TP') badgeHtml = '<div class="day-badge badge-tp">TP</div>';
-    if (e?.type === 'SL') badgeHtml = '<div class="day-badge badge-sl">SL</div>';
-
-    let glowHtml = '';
-    if (hasData) {
-      const color = r >= 0 ? 'rgba(62,207,122,0.06)' : 'rgba(224,85,85,0.06)';
-      glowHtml = `<div style="position:absolute;inset:0;background:${color};pointer-events:none;border-radius:inherit"></div>`;
+    if (activeTrades.length) {
+      const types = activeTrades.map(t=>t.type).filter(Boolean);
+      const hasTP = types.includes('TP'), hasSL = types.includes('SL');
+      if (hasTP && hasSL) badgeHtml = '<div class="day-badge badge-mixed">±</div>';
+      else if (hasTP) badgeHtml = '<div class="day-badge badge-tp">TP</div>';
+      else if (hasSL) badgeHtml = '<div class="day-badge badge-sl">SL</div>';
     }
+
+    const glowHtml = hasData
+      ? `<div style="position:absolute;inset:0;background:${r>=0?'rgba(62,207,122,0.06)':'rgba(224,85,85,0.06)'};pointer-events:none;border-radius:inherit"></div>`
+      : '';
 
     html += `<div class="${classes}" onclick="openDayModal('${k}')">
       ${badgeHtml}
       <div class="day-num">${d}</div>
       ${resultHtml}
+      ${tradeCountHtml}
       ${pairHtml}
       ${glowHtml}
     </div>`;
@@ -747,19 +632,15 @@ function renderCalendar() {
   renderRiskCard();
 }
 
-// ── FILTER ──
 function setFilter(f) {
   curFilter = f;
-  ['All','Win','Loss'].forEach(x => {
-    document.getElementById(`fb${x}`).className = 'filter-btn';
-  });
+  ['All','Win','Loss'].forEach(x => { document.getElementById(`fb${x}`).className = 'filter-btn'; });
   if (f === 'all')  document.getElementById('fbAll').className  = 'filter-btn active-all';
   if (f === 'win')  document.getElementById('fbWin').className  = 'filter-btn active-win';
   if (f === 'loss') document.getElementById('fbLoss').className = 'filter-btn active-loss';
   renderCalendar();
 }
 
-// ── MONTH NAV ──
 function changeMonth(dir) {
   curMonth += dir;
   if (curMonth > 11) { curMonth = 0; curYear++; }
@@ -767,80 +648,216 @@ function changeMonth(dir) {
   renderCalendar();
 }
 
-// ── MODAL ──
+// ══════════════════════════════════════════════════
+// MULTI-TRADE MODAL
+// ══════════════════════════════════════════════════
+
 let currentModalKey = null;
-let currentType     = null;
-let currentImages   = [null, null, null];
-let activeImgSlot   = 0;
 
 function openDayModal(k) {
   const [y,m,d] = k.split('-');
   currentModalKey = k;
-  currentType     = null;
-  currentImages   = [null, null, null];
+  activeTradeTab  = 0;
 
   const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('modalDateTitle').textContent = `${parseInt(d)} de ${meses[parseInt(m)-1]} ${y}`;
 
-  const e = migrateEntry(data[k] || {});
-  document.getElementById('fResultado').value  = e.result ?? '';
-  document.getElementById('fTrades').value     = e.trades  ?? 1;
-  document.getElementById('fSetup').value      = e.setup   ?? '';
-  document.getElementById('fNotas').value      = e.notas   ?? '';
-  document.getElementById('fPair').value       = e.pair    ?? '';
-  document.getElementById('fSession').value    = e.session ?? '';
-  document.getElementById('fExecution').value  = e.executionType ?? '';
-  document.getElementById('fSetupType').value  = e.setupType ?? '';
+  // Load existing data or start fresh
+  const existing = data[k] ? migrateEntry(data[k]) : null;
+  const existingTrades = existing?.trades || [];
 
-  const imgs = e.images || (e.img ? [e.img] : []);
-  currentImages = [imgs[0]||null, imgs[1]||null, imgs[2]||null];
-  renderImgSlots();
-
-  document.getElementById('btnTP').className = 'type-btn';
-  document.getElementById('btnSL').className = 'type-btn';
-  if (e.type === 'TP') setType('TP');
-  else if (e.type === 'SL') setType('SL');
-
-  document.getElementById('tradeModal').classList.add('open');
-  setTimeout(() => document.getElementById('fResultado').focus(), 100);
-}
-
-// ── FIX: viewImg — ver imagen en pantalla completa ──
-function viewImg(src) {
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
-  overlay.innerHTML = `
-    <img src="${src}" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 0 60px rgba(0,0,0,0.9)">
-    <div style="position:fixed;top:18px;right:24px;color:white;font-size:26px;cursor:pointer;opacity:0.7;line-height:1">✕</div>`;
-  overlay.onclick = () => document.body.removeChild(overlay);
-  document.body.appendChild(overlay);
-}
-
-// ── FIX: renderImgSlots — click en imagen abre viewer, no upload ──
-function renderImgSlots() {
-  const labels = ['Par operado', 'Correlación', 'SMT / Confirmación'];
-  const icons  = ['📊', '🔗', '🧠'];
-  for (let i = 0; i < 3; i++) {
-    const slot = document.getElementById(`imgSlot${i}`);
-    if (currentImages[i]) {
-      const src = currentImages[i];
-      slot.innerHTML = `
-        <img src="${src}" alt="img${i}"
-          style="cursor:zoom-in;width:100%;height:100%;object-fit:cover;border-radius:6px"
-          onclick="event.stopPropagation();viewImg('${src}')">
-        <button class="img-slot-del" onclick="removeImg(event,${i})">✕</button>`;
-    } else {
-      slot.innerHTML = `
-        <span class="img-slot-ico">${icons[i]}</span>
-        <span class="img-slot-lbl">${labels[i]}</span>`;
+  // Populate 3 trade slots
+  currentDayTrades = [0,1,2].map(i => {
+    if (existingTrades[i]) {
+      const t = existingTrades[i];
+      return {
+        type:          t.type || null,
+        result:        t.result !== undefined ? String(t.result) : '',
+        pair:          t.pair || '',
+        session:       t.session || '',
+        executionType: t.executionType || '',
+        setupType:     t.setupType || '',
+        setup:         t.setup || '',
+        notas:         t.notas || '',
+        images:        [t.images?.[0]||null, t.images?.[1]||null]
+      };
     }
+    return EMPTY_TRADE();
+  });
+
+  renderTradePanels();
+  switchTradeTab(0);
+  updateDaySummary();
+  document.getElementById('tradeModal').classList.add('open');
+}
+
+function renderTradePanels() {
+  const container = document.getElementById('tradePanels');
+  container.innerHTML = currentDayTrades.map((t, i) => buildTradePanel(t, i)).join('');
+  // Update tab labels
+  [0,1,2].forEach(i => {
+    const tab = document.getElementById(`tradeTab${i}`);
+    const t = currentDayTrades[i];
+    const hasData = t.result !== '';
+    tab.classList.toggle('has-data', hasData);
+    if (hasData) {
+      const r = parseFloat(t.result) || 0;
+      tab.classList.toggle('tab-win', r > 0);
+      tab.classList.toggle('tab-loss', r < 0);
+    } else {
+      tab.classList.remove('tab-win','tab-loss');
+    }
+  });
+}
+
+function buildTradePanel(t, i) {
+  const pairOptions = ['XAUUSD','EURUSD','GBPUSD','USDJPY','GBPJPY','NAS100','US30','OTRO']
+    .map(v => `<option value="${v}" ${t.pair===v?'selected':''}>${v}</option>`).join('');
+  const sessOptions = ['Asia','Londres','NY','Overlap']
+    .map(v => `<option value="${v}" ${t.session===v?'selected':''}>${v}</option>`).join('');
+  const execOptions = [['buena','✅ Buena'],['mala','⚠ Mala'],['emocional','❌ Emocional']]
+    .map(([v,l]) => `<option value="${v}" ${t.executionType===v?'selected':''}>${l}</option>`).join('');
+
+  const img0 = t.images[0];
+  const img1 = t.images[1];
+
+  return `<div class="trade-panel" id="tradePanel${i}" style="display:none">
+    <div class="result-type">
+      <button class="type-btn${t.type==='TP'?' tp-active':''}" id="btnTP_${i}" onclick="setTradeType(${i},'TP')">✅ TP — Ganado</button>
+      <button class="type-btn${t.type==='SL'?' sl-active':''}" id="btnSL_${i}" onclick="setTradeType(${i},'SL')">❌ SL — Perdido</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Resultado ($)</label>
+        <input type="number" class="form-input" id="fRes_${i}" placeholder="Ej: 45.50" step="0.01" value="${t.result}" oninput="onTradeInput(${i})">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Par</label>
+        <select class="form-select" id="fPair_${i}" onchange="onTradeInput(${i})">
+          <option value="">— Par —</option>${pairOptions}
+        </select>
+      </div>
+    </div>
+    <div class="form-row-3">
+      <div class="form-group">
+        <label class="form-label">Sesión</label>
+        <select class="form-select" id="fSess_${i}" onchange="onTradeInput(${i})">
+          <option value="">— Sesión —</option>${sessOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ejecución</label>
+        <select class="form-select" id="fExec_${i}" onchange="onTradeInput(${i})">
+          <option value="">— Ejecución —</option>${execOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Setup tipo</label>
+        <select class="form-select" id="fSetupType_${i}" onchange="onTradeInput(${i})">
+          <option value="">— Setup —</option>
+          <optgroup label="SMC"><option value="BOS+FVG">📐 BOS+FVG</option><option value="LiquiditySweep">💧 Liquidity Sweep</option><option value="OB">🟦 Order Block</option><option value="CHOCH+OB">🔄 CHoCH+OB</option><option value="MSS">⚡ MSS</option><option value="Breaker">🔲 Breaker</option></optgroup>
+          <optgroup label="CRT"><option value="Rango CRT">📊 Rango CRT</option><option value="Rango CRT+SMT">📊🔗 CRT+SMT</option><option value="SMT">🔗 SMT</option></optgroup>
+          <optgroup label="Custom"><option value="Custom">✏️ Custom</option></optgroup>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group full">
+        <label class="form-label">Setup · Detalle de entrada</label>
+        <input type="text" class="form-input" id="fSetup_${i}" placeholder="Ej: BOS en H1 + FVG H4" value="${esc(t.setup)}" oninput="onTradeInput(${i})">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group full">
+        <label class="form-label">Notas</label>
+        <textarea class="form-textarea" id="fNotas_${i}" placeholder="¿Qué salió bien? ¿Qué mejorar?" oninput="onTradeInput(${i})">${esc(t.notas)}</textarea>
+      </div>
+    </div>
+    <!-- 2 IMAGE SLOTS PER TRADE -->
+    <div class="form-group" style="margin-bottom:14px">
+      <label class="form-label">Screenshots (2 por trade)</label>
+      <div class="img-slots-2">
+        <div class="img-slot" id="imgSlot_${i}_0" onclick="triggerImgUpload(${i},0)">
+          ${img0
+            ? `<img src="${img0}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:zoom-in" onclick="event.stopPropagation();viewImg('${img0}')"><button class="img-slot-del" onclick="removeImg(event,${i},0)">✕</button>`
+            : `<span class="img-slot-ico">📊</span><span class="img-slot-lbl">Gráfico entrada</span>`}
+        </div>
+        <div class="img-slot" id="imgSlot_${i}_1" onclick="triggerImgUpload(${i},1)">
+          ${img1
+            ? `<img src="${img1}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:zoom-in" onclick="event.stopPropagation();viewImg('${img1}')"><button class="img-slot-del" onclick="removeImg(event,${i},1)">✕</button>`
+            : `<span class="img-slot-ico">🔗</span><span class="img-slot-lbl">Confirmación/Correlación</span>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function switchTradeTab(idx) {
+  activeTradeTab = idx;
+  [0,1,2].forEach(i => {
+    document.getElementById(`tradeTab${i}`)?.classList.toggle('active', i === idx);
+    const panel = document.getElementById(`tradePanel${i}`);
+    if (panel) panel.style.display = i === idx ? 'block' : 'none';
+  });
+}
+
+function setTradeType(tradeIdx, type) {
+  currentDayTrades[tradeIdx].type = type;
+  document.getElementById(`btnTP_${tradeIdx}`).className = `type-btn${type==='TP'?' tp-active':''}`;
+  document.getElementById(`btnSL_${tradeIdx}`).className = `type-btn${type==='SL'?' sl-active':''}`;
+  onTradeInput(tradeIdx);
+}
+
+function onTradeInput(tradeIdx) {
+  // Sync current values into state
+  const t = currentDayTrades[tradeIdx];
+  t.result        = document.getElementById(`fRes_${tradeIdx}`)?.value ?? '';
+  t.pair          = document.getElementById(`fPair_${tradeIdx}`)?.value ?? '';
+  t.session       = document.getElementById(`fSess_${tradeIdx}`)?.value ?? '';
+  t.executionType = document.getElementById(`fExec_${tradeIdx}`)?.value ?? '';
+  t.setupType     = document.getElementById(`fSetupType_${tradeIdx}`)?.value ?? '';
+  t.setup         = document.getElementById(`fSetup_${tradeIdx}`)?.value ?? '';
+  t.notas         = document.getElementById(`fNotas_${tradeIdx}`)?.value ?? '';
+  updateDaySummary();
+  // Update tab appearance
+  const tab = document.getElementById(`tradeTab${tradeIdx}`);
+  const hasData = t.result !== '';
+  tab.classList.toggle('has-data', hasData);
+  if (hasData) {
+    const r = parseFloat(t.result) || 0;
+    tab.classList.toggle('tab-win', r > 0);
+    tab.classList.toggle('tab-loss', r < 0);
+  } else {
+    tab.classList.remove('tab-win','tab-loss');
   }
 }
 
-function triggerImgUpload(idx) {
-  activeImgSlot = idx;
-  document.getElementById('fImagenMulti').value = '';
-  document.getElementById('fImagenMulti').click();
+function updateDaySummary() {
+  let total = 0, count = 0;
+  currentDayTrades.forEach(t => {
+    if (t.result !== '' && t.result !== null && t.result !== undefined) {
+      const v = parseFloat(t.result);
+      if (!isNaN(v)) { total += v; count++; }
+    }
+  });
+  const valEl = document.getElementById('daySummaryVal');
+  const trdEl = document.getElementById('daySummaryTrades');
+  if (valEl) {
+    valEl.textContent = fmt$(total);
+    valEl.className = 'day-summary-val ' + (total >= 0 ? 'val-win' : 'val-loss');
+  }
+  if (trdEl) trdEl.textContent = `${count} trade${count!==1?'s':''} activo${count!==1?'s':''}`;
+}
+
+// ── IMAGE HANDLING ──
+let activeImgTradeIdx = 0;
+let activeImgSlotIdx  = 0;
+
+function triggerImgUpload(tradeIdx, slotIdx) {
+  activeImgTradeIdx = tradeIdx;
+  activeImgSlotIdx  = slotIdx;
+  const inp = document.getElementById('fImagenMulti');
+  if (inp) { inp.value = ''; inp.click(); }
 }
 
 function handleMultiImage(event) {
@@ -848,61 +865,98 @@ function handleMultiImage(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    currentImages[activeImgSlot] = e.target.result;
-    renderImgSlots();
+    currentDayTrades[activeImgTradeIdx].images[activeImgSlotIdx] = e.target.result;
+    refreshImgSlot(activeImgTradeIdx, activeImgSlotIdx);
   };
   reader.readAsDataURL(file);
 }
 
-function removeImg(event, idx) {
+function refreshImgSlot(tradeIdx, slotIdx) {
+  const slot = document.getElementById(`imgSlot_${tradeIdx}_${slotIdx}`);
+  if (!slot) return;
+  const src = currentDayTrades[tradeIdx].images[slotIdx];
+  const labels = ['Gráfico entrada','Confirmación/Correlación'];
+  const icons  = ['📊','🔗'];
+  if (src) {
+    slot.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:zoom-in" onclick="event.stopPropagation();viewImg('${src}')"><button class="img-slot-del" onclick="removeImg(event,${tradeIdx},${slotIdx})">✕</button>`;
+  } else {
+    slot.innerHTML = `<span class="img-slot-ico">${icons[slotIdx]}</span><span class="img-slot-lbl">${labels[slotIdx]}</span>`;
+  }
+}
+
+function removeImg(event, tradeIdx, slotIdx) {
   event.stopPropagation();
-  currentImages[idx] = null;
-  renderImgSlots();
+  currentDayTrades[tradeIdx].images[slotIdx] = null;
+  refreshImgSlot(tradeIdx, slotIdx);
 }
 
-function closeTradeModal() {
-  document.getElementById('tradeModal').classList.remove('open');
-  currentModalKey = null;
+function viewImg(src) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  overlay.innerHTML = `<img src="${src}" style="max-width:92vw;max-height:90vh;border-radius:10px;box-shadow:0 0 60px rgba(0,0,0,0.9)"><div style="position:fixed;top:18px;right:24px;color:white;font-size:26px;cursor:pointer;opacity:0.7;line-height:1">✕</div>`;
+  overlay.onclick = () => document.body.removeChild(overlay);
+  document.body.appendChild(overlay);
 }
 
-function setType(t) {
-  currentType = t;
-  document.getElementById('btnTP').className = 'type-btn' + (t === 'TP' ? ' tp-active' : '');
-  document.getElementById('btnSL').className = 'type-btn' + (t === 'SL' ? ' sl-active' : '');
-}
-
+// ── SAVE / CLEAR ──
 function saveDay() {
   if (!currentModalKey) return;
-  const result   = document.getElementById('fResultado').value;
-  const k        = currentModalKey;
-  const dateObj  = new Date(k + 'T12:00:00');
+  const k       = currentModalKey;
+  const dateObj = new Date(k + 'T12:00:00');
   const weekdays = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
+  // Sync current tab before saving
+  onTradeInput(activeTradeTab);
+
+  // Only keep trades that have at least a result
+  const tradesWithData = currentDayTrades.filter(t => t.result !== '' && t.result !== null);
+  if (!tradesWithData.length) {
+    // No data at all — treat as clear
+    delete data[k];
+    saveAccountData(activeAccountId, data);
+    closeTradeModal();
+    renderCalendar();
+    toast('Sin trades — día limpiado');
+    return;
+  }
+
+  const totalResult = tradesWithData.reduce((s,t) => s + (parseFloat(t.result)||0), 0);
+
+  // Build clean trade objects
+  const cleanTrades = currentDayTrades.map(t => ({
+    type:          t.type,
+    result:        t.result !== '' ? parseFloat(t.result) : '',
+    pair:          t.pair,
+    session:       t.session,
+    executionType: t.executionType,
+    setupType:     t.setupType,
+    setup:         t.setup,
+    notas:         t.notas,
+    images:        t.images.filter(Boolean),
+  }));
+
   data[k] = {
-    result:        result !== '' ? parseFloat(result) : '',
-    trades:        parseInt(document.getElementById('fTrades').value) || 1,
-    type:          currentType,
-    setup:         document.getElementById('fSetup').value.trim(),
-    notas:         document.getElementById('fNotas').value.trim(),
-    pair:          document.getElementById('fPair').value,
-    session:       document.getElementById('fSession').value,
-    executionType: document.getElementById('fExecution').value,
-    setupType:     document.getElementById('fSetupType').value,
-    weekday:       weekdays[dateObj.getDay()],
-    images:        currentImages.filter(Boolean),
-    img:           currentImages[0] || null,
-    accountId:     activeAccountId,
+    trades:       cleanTrades,
+    totalResult,
+    weekday:      weekdays[dateObj.getDay()],
+    accountId:    activeAccountId,
+    // Legacy compat
+    result:       totalResult,
+    type:         cleanTrades[0]?.type || null,
+    pair:         cleanTrades[0]?.pair || '',
+    session:      cleanTrades[0]?.session || '',
   };
+
   saveAccountData(activeAccountId, data);
   if (activeAccountId === 'default') localStorage.setItem('mtj_data', JSON.stringify(data));
   closeTradeModal();
   renderCalendar();
-  toast('✓ Operación guardada');
+  toast(`✓ ${tradesWithData.length} trade${tradesWithData.length>1?'s':''} guardado${tradesWithData.length>1?'s':''}`);
 }
 
 function clearDay() {
   if (!currentModalKey) return;
-  if (!confirm('¿Borrar datos de este día?')) return;
+  if (!confirm('¿Borrar todos los trades de este día?')) return;
   delete data[currentModalKey];
   saveAccountData(activeAccountId, data);
   if (activeAccountId === 'default') localStorage.setItem('mtj_data', JSON.stringify(data));
@@ -913,7 +967,91 @@ function clearDay() {
   toast('Día borrado');
 }
 
-// ── SETTINGS ──
+function closeTradeModal() {
+  document.getElementById('tradeModal').classList.remove('open');
+  currentModalKey = null;
+}
+
+// ══════════════════════════════════════════════════
+// ACCOUNT CRUD
+// ══════════════════════════════════════════════════
+
+let editingAcctId = null;
+
+function openAcctModal(id) {
+  editingAcctId = id;
+  const acct = id ? accounts.find(a => a.id === id) : null;
+  document.getElementById('acctModalTitle').textContent = acct ? 'EDITAR CUENTA' : 'NUEVA CUENTA';
+  document.getElementById('acctBroker').value   = acct?.broker        || '';
+  document.getElementById('acctBalance').value  = acct?.balanceInicial|| '';
+  document.getElementById('acctTipo').value     = acct?.tipo          || 'challenge';
+  document.getElementById('acctFase').value     = acct?.fase          || 'fase1';
+  document.getElementById('acctMaxDD').value    = acct?.maxDrawdown   || 10;
+  document.getElementById('acctTarget').value   = acct?.target        || 10;
+  document.getElementById('acctLabel').value    = acct?.label         || '';
+  document.getElementById('acctDeleteBtn').style.display = acct ? 'block' : 'none';
+  document.getElementById('acctModal').classList.add('open');
+}
+
+function closeAcctModal() {
+  document.getElementById('acctModal').classList.remove('open');
+  editingAcctId = null;
+}
+
+function saveAccount() {
+  const broker = document.getElementById('acctBroker').value.trim();
+  if (!broker) { alert('Ingresá el nombre del broker o firma.'); return; }
+  const balance = parseFloat(document.getElementById('acctBalance').value) || 5000;
+  const tipo    = document.getElementById('acctTipo').value;
+  const fase    = document.getElementById('acctFase').value;
+  const maxDD   = parseFloat(document.getElementById('acctMaxDD').value) || 10;
+  const target  = parseFloat(document.getElementById('acctTarget').value) || 10;
+  const label   = document.getElementById('acctLabel').value.trim() || broker;
+
+  if (editingAcctId) {
+    const idx = accounts.findIndex(a => a.id === editingAcctId);
+    if (idx >= 0) {
+      accounts[idx] = { ...accounts[idx], broker, balanceInicial: balance, tipo, fase, maxDrawdown: maxDD, target, label };
+      const cfg = loadAccountConfig(editingAcctId);
+      cfg.capital = balance;
+      saveAccountConfig(editingAcctId, cfg);
+      if (editingAcctId === activeAccountId) config.capital = balance;
+    }
+  } else {
+    const newId = 'acct_' + Date.now();
+    accounts.push({ id: newId, broker, balanceInicial: balance, tipo, fase, maxDrawdown: maxDD, target, label, estado: 'activa', createdAt: new Date().toISOString() });
+  }
+  saveAccounts();
+  closeAcctModal();
+  renderAccountBar();
+  renderSideAcctInfo();
+  renderRiskCard();
+  toast('Cuenta guardada ✓');
+}
+
+function deleteAccount() {
+  if (!editingAcctId) return;
+  const acct = accounts.find(a => a.id === editingAcctId);
+  const label = acct?.label || acct?.broker || 'esta cuenta';
+  if (!confirm(`¿Eliminar "${label}" y todos sus datos?\n\nEsta acción no se puede deshacer.`)) return;
+  const idx = accounts.findIndex(a => a.id === editingAcctId);
+  if (idx >= 0) accounts.splice(idx, 1);
+  localStorage.removeItem(getAccountDataKey(editingAcctId));
+  localStorage.removeItem(getAccountConfigKey(editingAcctId));
+  if (editingAcctId === 'default') {
+    accounts.unshift({ id: 'default', broker: 'Personal', tipo: 'personal', fase: 'n/a', balanceInicial: 5000, maxDrawdown: 10, target: 10, label: 'Cuenta Principal', estado: 'activa', createdAt: new Date().toISOString() });
+  }
+  saveAccounts();
+  closeAcctModal();
+  const nextId = accounts.find(a => a.estado === 'activa')?.id || 'default';
+  switchAccount(nextId);
+  toast('Cuenta eliminada');
+}
+
+// ══════════════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════════════
+
 function openSettings() {
   document.getElementById('fCapitalInicial').value = config.capital || 5000;
   document.getElementById('settingsModal').classList.add('open');
@@ -936,67 +1074,98 @@ function saveCapital() {
 }
 
 // ══════════════════════════════════════════════════
-// EXPORT / IMPORT — Backup system
+// CONSOLIDADO
+// ══════════════════════════════════════════════════
+
+function openConsolidado() { renderConsolidado(); document.getElementById('consolidadoPanel').classList.add('open'); }
+function closeConsolidado() { document.getElementById('consolidadoPanel').classList.remove('open'); }
+
+function renderConsolidado() {
+  const el = document.getElementById('consolidadoContent');
+  if (!el) return;
+  const activeAccts = accounts.filter(a => a.estado === 'activa');
+  let totalPnl = 0, totalTrades = 0, totalWins = 0;
+
+  const rows = activeAccts.map(acct => {
+    const d = loadAccountData(acct.id);
+    const entries = Object.values(d).map(e => migrateEntry(e)).filter(Boolean);
+    const pnl    = entries.reduce((s,e) => s + (getDayTotalResult(e)||0), 0);
+    const allT   = [];
+    entries.forEach(e => { (e.trades||[]).forEach(t => { if (t.result!=='') allT.push(t); }); });
+    const wins   = allT.filter(t => parseFloat(t.result||0) > 0).length;
+    const trades = allT.length;
+    const wr     = trades ? (wins/trades*100) : 0;
+    const r      = calcularRiesgoCuenta(acct);
+    totalPnl    += pnl;
+    totalTrades += trades;
+    totalWins   += wins;
+    const tipoClass = acct.tipo === 'funded' ? 'cons-funded' : acct.tipo === 'challenge' ? 'cons-challenge' : 'cons-personal';
+    const label = acct.label || `${acct.broker} ${acct.fase !== 'n/a' ? acct.fase : ''}`.trim();
+    return `<div class="cons-acct-row">
+      <div><div class="cons-broker">${esc(label)}</div><div style="font-size:9px;color:var(--muted)">${acct.broker}</div></div>
+      <div><span class="cons-tipo ${tipoClass}">${acct.tipo.toUpperCase()}</span></div>
+      <div style="font-family:var(--mono);font-weight:700;font-size:11px;color:${pnl>=0?'var(--win)':'var(--loss)'}">${pnl>=0?'+':''}$${pnl.toFixed(2)}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text2)">${wr.toFixed(0)}%</div>
+      <div style="font-size:9px;font-family:var(--mono)"><span style="font-size:8px;font-weight:700;letter-spacing:1px;color:${r.modo==='DEFENSIVO'?'var(--loss)':r.modo==='NEUTRO'?'var(--gold)':'var(--win)'}">${r.modo}</span></div>
+      <div style="font-size:10px;color:var(--muted)">${trades} trades</div>
+    </div>`;
+  }).join('');
+
+  const globalWr = totalTrades ? (totalWins/totalTrades*100) : 0;
+  el.innerHTML = `
+    <div class="cons-grid">
+      <div class="cons-kpi"><div class="cons-kpi-lbl">PnL Global</div><div class="cons-kpi-val" style="color:${totalPnl>=0?'var(--win)':'var(--loss)'}">${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</div><div class="cons-kpi-sub">Todas las cuentas activas</div></div>
+      <div class="cons-kpi"><div class="cons-kpi-lbl">Cuentas activas</div><div class="cons-kpi-val">${activeAccts.length}</div><div class="cons-kpi-sub">${accounts.filter(a=>a.estado==='inactiva').length} inactivas</div></div>
+      <div class="cons-kpi"><div class="cons-kpi-lbl">Total Trades</div><div class="cons-kpi-val">${totalTrades}</div><div class="cons-kpi-sub">Todas las cuentas</div></div>
+      <div class="cons-kpi"><div class="cons-kpi-lbl">Win Rate Global</div><div class="cons-kpi-val">${globalWr.toFixed(0)}%</div><div class="cons-kpi-sub">${totalWins} ganadores</div></div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div class="cons-acct-row header"><div>Cuenta</div><div>Tipo</div><div>P&L</div><div>WR</div><div>Modo</div><div>Trades</div></div>
+      ${rows || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:11px">No hay cuentas activas.</div>'}
+    </div>
+    <div style="margin-top:10px;font-size:9px;color:var(--muted);text-align:right;letter-spacing:0.3px">PnL global · ${new Date().toLocaleString('es-PY')}</div>`;
+}
+
+// ══════════════════════════════════════════════════
+// BACKUP
 // ══════════════════════════════════════════════════
 
 function exportBackup() {
-  const backup = { _version: 1, _exportedAt: new Date().toISOString(), data: {} };
+  const backup = { _version: 2, _exportedAt: new Date().toISOString(), data: {} };
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && (
-      k === LS_ACCOUNTS ||
-      k === LS_DATA_LEGACY ||
-      k === LS_CFG_LEGACY  ||
-      k.startsWith(LS_DATA_PFX) ||
-      k.startsWith(LS_CFG_PFX)
-    )) {
+    if (k && (k === LS_ACCOUNTS || k === LS_DATA_LEGACY || k === LS_CFG_LEGACY || k.startsWith(LS_DATA_PFX) || k.startsWith(LS_CFG_PFX))) {
       backup.data[k] = localStorage.getItem(k);
     }
   }
-  const json     = JSON.stringify(backup, null, 2);
-  const blob     = new Blob([json], { type: 'application/json' });
-  const url      = URL.createObjectURL(blob);
-  const date     = new Date().toISOString().slice(0, 10);
-  const a        = document.createElement('a');
-  a.href         = url;
-  a.download     = `mareblu-backup-${date}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `mareblu-backup-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast('✓ Backup exportado correctamente');
+  toast('✓ Backup exportado');
 }
 
 function importBackup() {
-  const input    = document.createElement('input');
-  input.type     = 'file';
-  input.accept   = '.json';
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
   input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
       try {
         const backup = JSON.parse(ev.target.result);
-        if (!backup._version || !backup.data) {
-          alert('Archivo inválido. Asegurate de usar un backup exportado desde Mareblu Journal.');
-          return;
-        }
-        if (!confirm(`¿Restaurar backup del ${backup._exportedAt?.slice(0,10) || 'fecha desconocida'}?\n\nATENCIÓN: Esto reemplazará todos los datos actuales.`)) return;
-        Object.entries(backup.data).forEach(([k, v]) => {
-          localStorage.setItem(k, v);
-        });
+        if (!backup._version || !backup.data) { alert('Archivo inválido.'); return; }
+        if (!confirm(`¿Restaurar backup del ${backup._exportedAt?.slice(0,10)}?\n\nEsto reemplazará todos los datos actuales.`)) return;
+        Object.entries(backup.data).forEach(([k, v]) => localStorage.setItem(k, v));
         toast('✓ Backup restaurado — recargando…');
         setTimeout(() => location.reload(), 1200);
-      } catch(err) {
-        alert('Error al leer el archivo. Asegurate de que sea un JSON válido.');
-      }
+      } catch(err) { alert('Error al leer el archivo.'); }
     };
     reader.readAsText(file);
   };
-  document.body.appendChild(input);
-  input.click();
-  document.body.removeChild(input);
+  document.body.appendChild(input); input.click(); document.body.removeChild(input);
 }
 
 // ══════════════════════════════════════════════════
@@ -1005,14 +1174,8 @@ function importBackup() {
 
 let intelCurTab = 'dashboard';
 
-function openIntel() {
-  migrateAllData();
-  document.getElementById('intelPanel').classList.add('open');
-  renderIntel(intelCurTab);
-}
-function closeIntel() {
-  document.getElementById('intelPanel').classList.remove('open');
-}
+function openIntel() { migrateAllData(); document.getElementById('intelPanel').classList.add('open'); renderIntel(intelCurTab); }
+function closeIntel() { document.getElementById('intelPanel').classList.remove('open'); }
 
 function switchIntelTab(tab) {
   intelCurTab = tab;
@@ -1024,35 +1187,28 @@ function switchIntelTab(tab) {
 }
 
 function analizarPatronesTrading() {
-  const all = getAllEntries().filter(e => e.result !== '' && e.result !== undefined);
-
+  const all = getAllIndividualTrades().filter(t => t.result !== '' && t.result !== undefined);
   function groupBy(key) {
     const groups = {};
     all.forEach(e => {
       const k = e[key] || 'Sin especificar';
-      if (!groups[k]) groups[k] = { trades:0, wins:0, pnl:0, entries:[] };
+      if (!groups[k]) groups[k] = { trades:0, wins:0, pnl:0 };
       groups[k].trades++;
       if (Number(e.result) > 0) groups[k].wins++;
       groups[k].pnl += Number(e.result||0);
-      groups[k].entries.push(e);
     });
     return Object.entries(groups).map(([name, d]) => ({
-      name,
-      trades:  d.trades,
-      wins:    d.wins,
-      pnl:     d.pnl,
+      name, trades: d.trades, wins: d.wins, pnl: d.pnl,
       winRate: d.trades ? (d.wins / d.trades * 100) : 0,
       avgPnl:  d.trades ? (d.pnl / d.trades) : 0,
     })).sort((a,b) => b.pnl - a.pnl);
   }
-
   const porPar     = groupBy('pair');
   const porSession = groupBy('session');
   const porSetup   = groupBy('setupType');
   const porExec    = groupBy('executionType');
   const dayOrder   = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
   const porDia     = groupBy('weekday').sort((a,b) => dayOrder.indexOf(a.name) - dayOrder.indexOf(b.name));
-
   return { porPar, porSession, porSetup, porDia, porExec, total: all.length };
 }
 
@@ -1076,126 +1232,70 @@ function renderIntelDashboard(p) {
   const bestSess = p.porSession.filter(r=>r.trades>=2).sort((a,b)=>b.winRate-a.winRate)[0];
   const bestDia  = p.porDia.filter(r=>r.trades>=2).sort((a,b)=>b.winRate-a.winRate)[0];
   const bestSet  = p.porSetup.filter(r=>r.trades>=2).sort((a,b)=>b.winRate-a.winRate)[0];
-  const bestPnl  = p.porPar.sort((a,b)=>b.pnl-a.pnl)[0];
-
+  const bestPnl  = [...p.porPar].sort((a,b)=>b.pnl-a.pnl)[0];
   const card = (icon, label, val, sub, color='var(--gold)') => `
-    <div class="i-card">
-      <div class="i-card-icon">${icon}</div>
-      <div class="i-card-label">${label}</div>
-      <div class="i-card-val" style="color:${color}">${val}</div>
-      <div class="i-card-sub">${sub}</div>
-    </div>`;
-
+    <div class="i-card"><div class="i-card-icon">${icon}</div><div class="i-card-label">${label}</div><div class="i-card-val" style="color:${color}">${val}</div><div class="i-card-sub">${sub}</div></div>`;
   return `
     <div class="i-grid">
-      ${bestPar  ? card('🪙','Mejor Par',     bestPar.name,  `${bestPar.winRate.toFixed(0)}% WR · ${bestPar.trades} trades`) : card('🪙','Mejor Par','—','Sin datos suficientes')}
-      ${bestSess ? card('🕐','Mejor Sesión',  bestSess.name, `${bestSess.winRate.toFixed(0)}% WR · ${fmt$(bestSess.pnl)} PnL`) : card('🕐','Mejor Sesión','—','Sin datos')}
-      ${bestDia  ? card('📅','Mejor Día',     bestDia.name,  `${bestDia.winRate.toFixed(0)}% WR · ${bestDia.trades} trades`) : card('📅','Mejor Día','—','Sin datos')}
-      ${bestSet  ? card('🧠','Mejor Setup',   bestSet.name,  `${bestSet.winRate.toFixed(0)}% WR · ${bestSet.trades} ops`) : card('🧠','Mejor Setup','—','Sin datos')}
-      ${bestPnl  ? card('💰','Mayor PnL',     bestPnl.name,  `${fmt$(bestPnl.pnl)} total`, bestPnl.pnl>=0?'var(--win)':'var(--loss)') : ''}
+      ${bestPar  ? card('🪙','Mejor Par',    bestPar.name,  `${bestPar.winRate.toFixed(0)}% WR · ${bestPar.trades} trades`) : card('🪙','Mejor Par','—','Sin datos')}
+      ${bestSess ? card('🕐','Mejor Sesión', bestSess.name, `${bestSess.winRate.toFixed(0)}% WR · ${fmt$(bestSess.pnl)} PnL`) : card('🕐','Mejor Sesión','—','Sin datos')}
+      ${bestDia  ? card('📅','Mejor Día',    bestDia.name,  `${bestDia.winRate.toFixed(0)}% WR · ${bestDia.trades} trades`) : card('📅','Mejor Día','—','Sin datos')}
+      ${bestSet  ? card('🧠','Mejor Setup',  bestSet.name,  `${bestSet.winRate.toFixed(0)}% WR · ${bestSet.trades} ops`) : card('🧠','Mejor Setup','—','Sin datos')}
+      ${bestPnl  ? card('💰','Mayor PnL',    bestPnl.name,  `${fmt$(bestPnl.pnl)} total`, bestPnl.pnl>=0?'var(--win)':'var(--loss)') : ''}
     </div>
-    ${p.porPar.length ? `<div class="i-section-title">Rendimiento por par (top ${Math.min(p.porPar.length,5)})</div>${renderMiniTable(p.porPar.slice(0,5))}` : ''}
-    ${p.porSession.length ? `<div class="i-section-title">Rendimiento por sesión</div>${renderMiniTable(p.porSession)}` : ''}
-  `;
+    ${p.porPar.length ? `<div class="i-section-title">Rendimiento por par</div>${renderMiniTable(p.porPar.slice(0,5))}` : ''}
+    ${p.porSession.length ? `<div class="i-section-title">Rendimiento por sesión</div>${renderMiniTable(p.porSession)}` : ''}`;
 }
 
 function renderMiniTable(rows) {
-  return `
-    <table class="i-table">
-      <thead><tr><th>#</th><th>Nombre</th><th>Trades</th><th>Win Rate</th><th>PnL Total</th><th>Avg PnL</th></tr></thead>
-      <tbody>
-        ${rows.map((r,i) => `
-          <tr>
-            <td class="i-rank">${i+1}</td>
-            <td class="i-name">${r.name}</td>
-            <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${r.trades}</td>
-            <td>
-              <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${r.winRate>=55?'var(--win)':r.winRate>=40?'var(--gold)':'var(--loss)'}">${r.winRate.toFixed(0)}%</span>
-              <span class="i-bar-wrap"><span class="i-bar-fill" style="width:${r.winRate}%;background:${r.winRate>=55?'rgba(62,207,122,0.7)':r.winRate>=40?'rgba(200,168,75,0.7)':'rgba(224,85,85,0.7)'}"></span></span>
-            </td>
-            <td style="font-family:var(--mono);font-size:11px;font-weight:700;color:${r.pnl>=0?'var(--win)':'var(--loss)'}">${fmt$(r.pnl)}</td>
-            <td style="font-family:var(--mono);font-size:10px;color:${r.avgPnl>=0?'rgba(62,207,122,0.8)':'rgba(224,85,85,0.8)'}">${fmt$(r.avgPnl)}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
+  return `<table class="i-table"><thead><tr><th>#</th><th>Nombre</th><th>Trades</th><th>Win Rate</th><th>PnL Total</th><th>Avg PnL</th></tr></thead><tbody>
+    ${rows.map((r,i) => `<tr>
+      <td class="i-rank">${i+1}</td>
+      <td class="i-name">${r.name}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:var(--text2)">${r.trades}</td>
+      <td><span style="font-family:var(--mono);font-size:11px;font-weight:700;color:${r.winRate>=55?'var(--win)':r.winRate>=40?'var(--gold)':'var(--loss)'}">${r.winRate.toFixed(0)}%</span>
+        <span class="i-bar-wrap"><span class="i-bar-fill" style="width:${r.winRate}%;background:${r.winRate>=55?'rgba(62,207,122,0.7)':r.winRate>=40?'rgba(200,168,75,0.7)':'rgba(224,85,85,0.7)'}"></span></span></td>
+      <td style="font-family:var(--mono);font-size:11px;font-weight:700;color:${r.pnl>=0?'var(--win)':'var(--loss)'}">${fmt$(r.pnl)}</td>
+      <td style="font-family:var(--mono);font-size:10px;color:${r.avgPnl>=0?'rgba(62,207,122,0.8)':'rgba(224,85,85,0.8)'}">${fmt$(r.avgPnl)}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
 }
 
 function renderIntelTable(rows, title, icon) {
-  if (!rows.length) return '<div class="i-empty">Sin datos para este análisis.<br>Completá los campos al registrar operaciones.</div>';
-  return `
-    <div class="i-section-title">${icon} ${title} · ${rows.length} categoría${rows.length!==1?'s':''}</div>
-    ${renderMiniTable(rows)}
-  `;
+  if (!rows.length) return '<div class="i-empty">Sin datos para este análisis.</div>';
+  return `<div class="i-section-title">${icon} ${title} · ${rows.length} categoría${rows.length!==1?'s':''}</div>${renderMiniTable(rows)}`;
 }
 
 function renderIntelInsights(p) {
   const ins = [];
-
   const pares = p.porPar.filter(r=>r.trades>=3);
   if (pares.length) {
-    const best = pares.sort((a,b)=>b.winRate-a.winRate)[0];
+    const best  = [...pares].sort((a,b)=>b.winRate-a.winRate)[0];
     ins.push({ico:'🪙', txt:`<strong>${best.name}</strong> es tu par más rentable con <strong>${best.winRate.toFixed(0)}% win rate</strong> en ${best.trades} trades (PnL: ${fmt$(best.pnl)}).`});
-    const worst = pares.sort((a,b)=>a.winRate-b.winRate)[0];
+    const worst = [...pares].sort((a,b)=>a.winRate-b.winRate)[0];
     if (worst.winRate < 40) ins.push({ico:'⚠️', txt:`<strong>${worst.name}</strong> tiene bajo rendimiento (${worst.winRate.toFixed(0)}% WR). Evaluar si es conveniente seguir operando este par.`});
   }
-
   const sess = p.porSession.filter(r=>r.trades>=2);
   if (sess.length) {
-    const best = sess.sort((a,b)=>b.winRate-a.winRate)[0];
+    const best = [...sess].sort((a,b)=>b.winRate-a.winRate)[0];
     ins.push({ico:'🕐', txt:`Sesión <strong>${best.name}</strong> es la más rentable: ${best.winRate.toFixed(0)}% WR con ${fmt$(best.pnl)} PnL acumulado.`});
-    if (sess.length > 1) {
-      const worst = sess.sort((a,b)=>a.pnl-b.pnl)[0];
-      if (worst.pnl < 0) ins.push({ico:'⚠️', txt:`Sesión <strong>${worst.name}</strong> genera pérdidas (${fmt$(worst.pnl)}). Considerar reducir operaciones en ese horario.`});
-    }
+    const worst = [...sess].sort((a,b)=>a.pnl-b.pnl)[0];
+    if (worst.pnl < 0) ins.push({ico:'⚠️', txt:`Sesión <strong>${worst.name}</strong> genera pérdidas (${fmt$(worst.pnl)}). Considerar reducir operaciones en ese horario.`});
   }
-
   const dias = p.porDia.filter(r=>r.trades>=2);
   if (dias.length) {
-    const sorted = dias.sort((a,b)=>b.winRate-a.winRate);
-    const best = sorted[0];
+    const best = [...dias].sort((a,b)=>b.winRate-a.winRate)[0];
     ins.push({ico:'📅', txt:`<strong>${best.name}</strong> es tu mejor día con ${best.winRate.toFixed(0)}% WR en ${best.trades} sesiones.`});
-    if (sorted.length > 1) {
-      const worst = dias.sort((a,b)=>a.pnl-b.pnl)[0];
-      if (worst.pnl < 0) ins.push({ico:'📅', txt:`<strong>${worst.name}</strong> es tu peor día (${fmt$(worst.pnl)}). Evaluar descanso ese día.`});
-    }
+    const worst = [...dias].sort((a,b)=>a.pnl-b.pnl)[0];
+    if (worst.pnl < 0) ins.push({ico:'📅', txt:`<strong>${worst.name}</strong> es tu peor día (${fmt$(worst.pnl)}). Evaluar descanso ese día.`});
   }
-
   const setups = p.porSetup.filter(r=>r.trades>=2);
   if (setups.length) {
-    const best = setups.sort((a,b)=>b.winRate-a.winRate)[0];
+    const best = [...setups].sort((a,b)=>b.winRate-a.winRate)[0];
     ins.push({ico:'🧠', txt:`Setup <strong>${best.name}</strong> tiene el mayor win rate: ${best.winRate.toFixed(0)}% en ${best.trades} operaciones.`});
   }
-
-  const exec = p.porExec.filter(r=>r.trades>=2);
-  if (exec.length) {
-    const buenas      = exec.find(r=>r.name==='buena');
-    const emocionales = exec.find(r=>r.name==='emocional');
-    if (buenas && emocionales) {
-      ins.push({ico:'🎯', txt:`Ejecuciones <strong>buenas</strong>: ${buenas.winRate.toFixed(0)}% WR. Ejecuciones <strong>emocionales</strong>: ${emocionales.winRate.toFixed(0)}% WR. Diferencia: ${Math.abs(buenas.winRate - emocionales.winRate).toFixed(0)} puntos.`});
-    }
-    if (emocionales && emocionales.pnl < 0) {
-      ins.push({ico:'🚨', txt:`Las ejecuciones <strong>emocionales</strong> generan pérdidas (${fmt$(emocionales.pnl)}). Prioridad: mejorar disciplina de entrada.`});
-    }
-  }
-
-  if (p.total >= 10) {
-    const all  = getAllEntries().filter(e => e.result!==''&&e.result!==undefined);
-    const wins = all.filter(e => Number(e.result)>0);
-    const wr   = all.length ? wins.length/all.length*100 : 0;
-    if (wr >= 60) ins.push({ico:'🔥', txt:`Win rate global: <strong>${wr.toFixed(0)}%</strong> en ${all.length} operaciones. Rendimiento consistente.`});
-    else if (wr < 40) ins.push({ico:'📊', txt:`Win rate global de <strong>${wr.toFixed(0)}%</strong>. Revisar criterios de entrada y gestión de riesgo.`});
-  }
-
-  if (!ins.length) return '<div class="i-empty">Registrá al menos 3–5 trades con par, sesión y setup para ver insights automáticos.</div>';
-
-  return ins.map(i => `
-    <div class="i-insight">
-      <span class="i-insight-ico">${i.ico}</span>
-      <span class="i-insight-text">${i.txt}</span>
-    </div>
-  `).join('');
+  if (!ins.length) return '<div class="i-empty">Registrá al menos 3–5 trades con par, sesión y setup para ver insights.</div>';
+  return ins.map(i => `<div class="i-insight"><span class="i-insight-ico">${i.ico}</span><span class="i-insight-text">${i.txt}</span></div>`).join('');
 }
 
 // ── KEYBOARD ──
@@ -1229,25 +1329,316 @@ renderSideAcctInfo();
 renderRiskCard();
 window.addEventListener('resize', drawEquityChart);
 
+// ══════════════════════════════════════════════════
+// HEATMAP ENGINE — Mapa de calor por sesión/día/hora
+// ══════════════════════════════════════════════════
 
+let heatmapCurTab = 'hora';
 
- 
+function openHeatmap() {
+  document.getElementById('heatmapPanel').classList.add('open');
+  renderHeatmap(heatmapCurTab);
+}
+function closeHeatmap() {
+  document.getElementById('heatmapPanel').classList.remove('open');
+}
 
+function switchHeatmapTab(tab) {
+  heatmapCurTab = tab;
+  document.querySelectorAll('.heatmap-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('htab-' + tab)?.classList.add('active');
+  renderHeatmap(tab);
+}
 
+function renderHeatmap(tab) {
+  const el = document.getElementById('heatmapContent');
+  if (!el) return;
 
-     
+  const trades = getAllIndividualTrades().filter(t => t.result !== '' && t.result !== undefined);
+  if (!trades.length) {
+    el.innerHTML = '<div class="i-empty">Sin trades registrados con datos suficientes.<br>Registrá sesión en cada trade para ver el mapa de calor.</div>';
+    return;
+  }
 
- 
+  if (tab === 'hora')   el.innerHTML = renderHeatmapSesionHora(trades);
+  if (tab === 'dia')    el.innerHTML = renderHeatmapDia(trades);
+  if (tab === 'sesion') el.innerHTML = renderHeatmapSesion(trades);
+}
 
+// ── Color scale: rojo → gris → verde según P&L ──
+function heatColor(pnl, maxAbs) {
+  if (maxAbs === 0) return 'rgba(42,48,72,0.6)';
+  const ratio = Math.max(-1, Math.min(1, pnl / maxAbs));
+  if (ratio > 0) {
+    const a = Math.min(0.9, 0.15 + ratio * 0.75);
+    return `rgba(62,207,122,${a.toFixed(2)})`;
+  } else if (ratio < 0) {
+    const a = Math.min(0.9, 0.15 + Math.abs(ratio) * 0.75);
+    return `rgba(224,85,85,${a.toFixed(2)})`;
+  }
+  return 'rgba(42,48,72,0.6)';
+}
 
+function heatTextColor(pnl, maxAbs) {
+  if (maxAbs === 0) return 'var(--muted)';
+  const ratio = Math.abs(pnl / maxAbs);
+  return ratio > 0.3 ? '#fff' : 'var(--text2)';
+}
 
+// ── Tab 1: Grid Día de semana × Sesión ──
+function renderHeatmapSesionHora(trades) {
+  const days    = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  const sessions = ['Asia','Londres','NY','Overlap'];
 
-    
+  // Build matrix [day][session] = {pnl, count, wins}
+  const matrix = {};
+  days.forEach(d => {
+    matrix[d] = {};
+    sessions.forEach(s => { matrix[d][s] = { pnl: 0, count: 0, wins: 0 }; });
+  });
 
+  trades.forEach(t => {
+    const day = t.weekday || '';
+    const ses = t.session || '';
+    if (matrix[day] && matrix[day][ses] !== undefined) {
+      matrix[day][ses].pnl   += Number(t.result || 0);
+      matrix[day][ses].count++;
+      if (Number(t.result) > 0) matrix[day][ses].wins++;
+    }
+  });
 
- 
+  // Find max abs PnL for color scale
+  let maxAbs = 0;
+  days.forEach(d => sessions.forEach(s => {
+    const v = Math.abs(matrix[d][s].pnl);
+    if (v > maxAbs) maxAbs = v;
+  }));
 
+  // Summary stats
+  const totalPnl = trades.reduce((s,t) => s + Number(t.result||0), 0);
+  const wins = trades.filter(t => Number(t.result) > 0).length;
+  const wr = trades.length ? (wins/trades.length*100) : 0;
 
+  // Best cell
+  let bestCell = null, bestPnl = -Infinity;
+  days.forEach(d => sessions.forEach(s => {
+    if (matrix[d][s].count > 0 && matrix[d][s].pnl > bestPnl) {
+      bestPnl = matrix[d][s].pnl; bestCell = `${d} · ${s}`;
+    }
+  }));
 
+  let html = `
+    <div class="hm-stats-row">
+      <div class="hm-stat"><div class="hm-stat-lbl">P&L Total</div><div class="hm-stat-val" style="color:${totalPnl>=0?'var(--win)':'var(--loss)'}">${fmt$(totalPnl)}</div></div>
+      <div class="hm-stat"><div class="hm-stat-lbl">Total Trades</div><div class="hm-stat-val">${trades.length}</div></div>
+      <div class="hm-stat"><div class="hm-stat-lbl">Win Rate</div><div class="hm-stat-val" style="color:var(--win)">${wr.toFixed(0)}%</div></div>
+      <div class="hm-stat"><div class="hm-stat-lbl">Mejor combo</div><div class="hm-stat-val" style="color:var(--gold);font-size:11px">${bestCell || '—'}</div></div>
+    </div>
+    <div class="hm-legend">
+      <span style="color:var(--loss)">■</span> Pérdida
+      <span style="color:var(--muted);margin:0 8px">■</span> Sin datos
+      <span style="color:var(--win)">■</span> Ganancia
+      <span style="color:var(--muted);margin-left:16px;font-size:9px">Intensidad = magnitud del P&L</span>
+    </div>
+    <div class="hm-grid-wrap">
+      <table class="hm-table">
+        <thead>
+          <tr>
+            <th class="hm-th-day"></th>
+            ${sessions.map(s => `<th class="hm-th-sess">${s}</th>`).join('')}
+            <th class="hm-th-sess">Total día</th>
+          </tr>
+        </thead>
+        <tbody>`;
 
-      
+  days.forEach(day => {
+    const dayTotal = sessions.reduce((s, ses) => s + matrix[day][ses].pnl, 0);
+    const dayCount = sessions.reduce((s, ses) => s + matrix[day][ses].count, 0);
+    html += `<tr>
+      <td class="hm-td-day">${day}</td>`;
+    sessions.forEach(ses => {
+      const cell = matrix[day][ses];
+      const bg   = heatColor(cell.pnl, maxAbs);
+      const tc   = heatTextColor(cell.pnl, maxAbs);
+      const wr   = cell.count ? (cell.wins/cell.count*100).toFixed(0) : null;
+      if (cell.count === 0) {
+        html += `<td class="hm-td empty"><span class="hm-empty">—</span></td>`;
+      } else {
+        html += `<td class="hm-td" style="background:${bg}">
+          <div class="hm-cell-pnl" style="color:${tc}">${fmt$(cell.pnl)}</div>
+          <div class="hm-cell-meta" style="color:${tc};opacity:0.75">${cell.count}t · ${wr}%wr</div>
+        </td>`;
+      }
+    });
+    // Day total column
+    const dayBg = dayCount > 0 ? heatColor(dayTotal, maxAbs) : 'transparent';
+    const dayTc = dayCount > 0 ? heatTextColor(dayTotal, maxAbs) : 'var(--muted)';
+    html += `<td class="hm-td hm-td-total" style="background:${dayBg}">
+      ${dayCount > 0 ? `<div class="hm-cell-pnl" style="color:${dayTc}">${fmt$(dayTotal)}</div><div class="hm-cell-meta" style="color:${dayTc};opacity:0.75">${dayCount} trades</div>` : '<span class="hm-empty">—</span>'}
+    </td></tr>`;
+  });
+
+  // Session totals row
+  html += `<tr><td class="hm-td-day" style="color:var(--gold);font-weight:700">Total</td>`;
+  sessions.forEach(ses => {
+    const total = days.reduce((s,d) => s + matrix[d][ses].pnl, 0);
+    const count = days.reduce((s,d) => s + matrix[d][ses].count, 0);
+    const bg    = count > 0 ? heatColor(total, maxAbs) : 'transparent';
+    const tc    = count > 0 ? heatTextColor(total, maxAbs) : 'var(--muted)';
+    html += `<td class="hm-td hm-td-total" style="background:${bg}">
+      ${count > 0 ? `<div class="hm-cell-pnl" style="color:${tc}">${fmt$(total)}</div><div class="hm-cell-meta" style="color:${tc};opacity:0.75">${count} trades</div>` : '<span class="hm-empty">—</span>'}
+    </td>`;
+  });
+  html += `<td class="hm-td hm-td-total" style="background:${heatColor(totalPnl, maxAbs)}">
+    <div class="hm-cell-pnl" style="color:${heatTextColor(totalPnl,maxAbs)}">${fmt$(totalPnl)}</div>
+    <div class="hm-cell-meta" style="color:${heatTextColor(totalPnl,maxAbs)};opacity:0.75">${trades.length}t</div>
+  </td></tr>`;
+
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+// ── Tab 2: Barras por día de semana ──
+function renderHeatmapDia(trades) {
+  const days = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+  const stats = {};
+  days.forEach(d => { stats[d] = { pnl: 0, count: 0, wins: 0 }; });
+  trades.forEach(t => {
+    const d = t.weekday || '';
+    if (stats[d]) {
+      stats[d].pnl += Number(t.result||0);
+      stats[d].count++;
+      if (Number(t.result) > 0) stats[d].wins++;
+    }
+  });
+
+  const maxAbs = Math.max(...days.map(d => Math.abs(stats[d].pnl)), 1);
+  const activeDays = days.filter(d => stats[d].count > 0);
+
+  let html = `<div class="hm-bar-section">
+    <div class="hm-section-title">P&L por día de la semana</div>`;
+
+  days.forEach(day => {
+    const s = stats[day];
+    if (s.count === 0) return;
+    const pct = Math.abs(s.pnl / maxAbs * 100);
+    const wr  = (s.wins / s.count * 100).toFixed(0);
+    const isPos = s.pnl >= 0;
+    html += `<div class="hm-bar-row">
+      <div class="hm-bar-label">${day}</div>
+      <div class="hm-bar-track">
+        <div class="hm-bar-fill" style="width:${pct}%;background:${isPos?'rgba(62,207,122,0.7)':'rgba(224,85,85,0.7)'}"></div>
+      </div>
+      <div class="hm-bar-val" style="color:${isPos?'var(--win)':'var(--loss)'}">${fmt$(s.pnl)}</div>
+      <div class="hm-bar-meta">${s.count}t · ${wr}%wr</div>
+    </div>`;
+  });
+
+  // Insights
+  const sorted = activeDays.sort((a,b) => stats[b].pnl - stats[a].pnl);
+  const bestDay  = sorted[0];
+  const worstDay = sorted[sorted.length-1];
+
+  html += `</div>
+  <div class="hm-insights-row">
+    <div class="hm-insight-card win">
+      <div class="hm-ic-label">🏆 Mejor día</div>
+      <div class="hm-ic-val">${bestDay}</div>
+      <div class="hm-ic-sub">${fmt$(stats[bestDay].pnl)} · ${(stats[bestDay].wins/stats[bestDay].count*100).toFixed(0)}% WR</div>
+    </div>
+    <div class="hm-insight-card loss">
+      <div class="hm-ic-label">⚠️ Día más débil</div>
+      <div class="hm-ic-val">${worstDay}</div>
+      <div class="hm-ic-sub">${fmt$(stats[worstDay].pnl)} · ${(stats[worstDay].wins/stats[worstDay].count*100).toFixed(0)}% WR</div>
+    </div>
+    <div class="hm-insight-card gold">
+      <div class="hm-ic-label">📊 Días operados</div>
+      <div class="hm-ic-val">${activeDays.length} / 7</div>
+      <div class="hm-ic-sub">${trades.length} trades totales</div>
+    </div>
+  </div>`;
+
+  return html;
+}
+
+// ── Tab 3: Barras por sesión ──
+function renderHeatmapSesion(trades) {
+  const sessions = ['Asia','Londres','NY','Overlap'];
+  const stats = {};
+  sessions.forEach(s => { stats[s] = { pnl: 0, count: 0, wins: 0 }; });
+  const uncat = { pnl: 0, count: 0, wins: 0 };
+
+  trades.forEach(t => {
+    const s = t.session || '';
+    if (stats[s]) {
+      stats[s].pnl += Number(t.result||0);
+      stats[s].count++;
+      if (Number(t.result) > 0) stats[s].wins++;
+    } else {
+      uncat.pnl += Number(t.result||0);
+      uncat.count++;
+      if (Number(t.result) > 0) uncat.wins++;
+    }
+  });
+
+  const maxAbs = Math.max(...sessions.map(s => Math.abs(stats[s].pnl)), Math.abs(uncat.pnl), 1);
+
+  let html = `<div class="hm-bar-section">
+    <div class="hm-section-title">P&L acumulado por sesión</div>`;
+
+  const allSessions = [...sessions, ...(uncat.count > 0 ? ['Sin sesión'] : [])];
+  allSessions.forEach(ses => {
+    const s = ses === 'Sin sesión' ? uncat : stats[ses];
+    if (s.count === 0) return;
+    const pct = Math.abs(s.pnl / maxAbs * 100);
+    const wr  = (s.wins / s.count * 100).toFixed(0);
+    const isPos = s.pnl >= 0;
+    const sesColor = ses === 'Londres' ? 'rgba(91,156,246,0.7)' : ses === 'NY' ? 'rgba(200,168,75,0.7)' : ses === 'Asia' ? 'rgba(139,146,176,0.5)' : isPos ? 'rgba(62,207,122,0.7)' : 'rgba(224,85,85,0.7)';
+    html += `<div class="hm-bar-row">
+      <div class="hm-bar-label">${ses}</div>
+      <div class="hm-bar-track">
+        <div class="hm-bar-fill" style="width:${pct}%;background:${sesColor};opacity:${isPos?1:0.7}"></div>
+      </div>
+      <div class="hm-bar-val" style="color:${isPos?'var(--win)':'var(--loss)'}">${fmt$(s.pnl)}</div>
+      <div class="hm-bar-meta">${s.count}t · ${wr}%wr · avg ${fmt$(s.pnl/s.count)}</div>
+    </div>`;
+  });
+
+  // Best session insight
+  const activeSess = sessions.filter(s => stats[s].count > 0);
+  const bestSes = activeSess.sort((a,b) => stats[b].pnl - stats[a].pnl)[0];
+  const bestWrSes = activeSess.sort((a,b) => (stats[b].wins/stats[b].count) - (stats[a].wins/stats[a].count))[0];
+
+  if (bestSes) {
+    html += `</div>
+    <div class="hm-insights-row">
+      <div class="hm-insight-card win">
+        <div class="hm-ic-label">💰 Mayor P&L</div>
+        <div class="hm-ic-val">${bestSes}</div>
+        <div class="hm-ic-sub">${fmt$(stats[bestSes].pnl)} en ${stats[bestSes].count} trades</div>
+      </div>
+      <div class="hm-insight-card gold">
+        <div class="hm-ic-label">🎯 Mayor Win Rate</div>
+        <div class="hm-ic-val">${bestWrSes}</div>
+        <div class="hm-ic-sub">${(stats[bestWrSes].wins/stats[bestWrSes].count*100).toFixed(0)}% WR · ${stats[bestWrSes].count} trades</div>
+      </div>
+      <div class="hm-insight-card blue">
+        <div class="hm-ic-label">📍 Tu sesión base</div>
+        <div class="hm-ic-val">Londres + NY</div>
+        <div class="hm-ic-sub">CRT killzone principal</div>
+      </div>
+    </div>`;
+  } else {
+    html += `</div>`;
+  }
+
+  return html;
+}
+
+// Keyboard close
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeHeatmap();
+});
+document.getElementById('heatmapPanel')?.addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeHeatmap();
+});

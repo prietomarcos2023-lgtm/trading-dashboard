@@ -6,13 +6,9 @@
 <meta name="description" content="Mareblu Trading Journal — Sistema de rendimiento personal">
 <meta name="theme-color" content="#0c0d10">
 <title>Mareblu Trading Journal</title>
-
-<!-- Fonts — preconnect for faster load -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-<!-- App styles -->
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -33,8 +29,8 @@
       <span id="headerCapital">$0.00</span>
     </div>
     <button class="hdr-btn intel" onclick="openIntel()">◈ Inteligencia</button>
+    <button class="hdr-btn heatmap-btn" onclick="openHeatmap()">🔥 Mapa de calor</button>
     <button class="hdr-btn" onclick="openSettings()">⚙ Capital</button>
-    <!-- Export / Import backup buttons -->
     <button class="hdr-btn export-btn" onclick="exportBackup()" title="Exportar todos los datos como JSON">⬇ Backup</button>
     <button class="hdr-btn export-btn" onclick="importBackup()" title="Restaurar datos desde JSON">⬆ Restaurar</button>
   </div>
@@ -50,11 +46,7 @@
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
-
-  <!-- Account info -->
   <div id="sideAcctInfo"></div>
-
-  <!-- Risk Engine -->
   <div class="s-section">
     <div class="s-label">Motor de riesgo</div>
     <div id="riskCard">
@@ -67,8 +59,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Capital -->
   <div class="s-section">
     <div class="s-label">Balance</div>
     <div class="capital-box">
@@ -77,8 +67,6 @@
       <div class="capital-change" id="sCapitalChange">—</div>
     </div>
   </div>
-
-  <!-- Stats -->
   <div class="s-section">
     <div class="s-label">Rendimiento</div>
     <div style="display:flex;flex-direction:column;gap:4px">
@@ -88,8 +76,6 @@
       <div class="stat-row"><span class="stat-row-label">% Mensual</span><span class="stat-row-val" id="sMensual">0.00%</span></div>
     </div>
   </div>
-
-  <!-- Win Rate -->
   <div class="s-section">
     <div class="s-label">Win Rate</div>
     <div class="wr-bar-wrap">
@@ -105,8 +91,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Streak -->
   <div class="s-section">
     <div class="s-label">Racha actual</div>
     <div class="streak-box" id="streakBox">
@@ -117,8 +101,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Best / Worst -->
   <div class="s-section">
     <div class="s-label">Extremos del mes</div>
     <div style="display:flex;flex-direction:column;gap:4px">
@@ -128,27 +110,21 @@
       <div class="stat-row"><span class="stat-row-label">📅 Días rojos</span><span class="stat-row-val val-loss" id="sRedDays">0</span></div>
     </div>
   </div>
-
-  <!-- Consistency -->
   <div class="s-section">
     <div class="s-label">Consistencia semanal</div>
     <div class="consistency-row" id="consistencyDots"></div>
     <div style="margin-top:5px;font-size:8px;color:var(--muted);letter-spacing:0.3px">Verde = ganador · Rojo = pérdida · Gris = sin operar</div>
   </div>
-
-  <!-- Equity chart -->
   <div class="s-section">
     <div class="chart-wrap">
       <div class="chart-title">Curva de capital</div>
       <canvas id="equityChart"></canvas>
     </div>
   </div>
-
 </aside>
 
 <!-- MAIN -->
 <main class="main">
-
   <div class="month-nav">
     <div>
       <div class="month-title" id="monthTitle">—</div>
@@ -164,7 +140,6 @@
       <button class="nav-btn" onclick="changeMonth(1)">›</button>
     </div>
   </div>
-
   <div class="cal-headers">
     <div class="cal-header">LUN</div><div class="cal-header">MAR</div>
     <div class="cal-header">MIÉ</div><div class="cal-header">JUE</div>
@@ -172,130 +147,36 @@
     <div class="cal-header">DOM</div>
   </div>
   <div class="calendar" id="calendar"></div>
-
 </main>
 </div>
 
-<!-- TRADE MODAL -->
+<!-- ══════════════════════════════════════
+     TRADE MODAL — MULTI-TRADE
+══════════════════════════════════════ -->
 <div class="modal-overlay" id="tradeModal">
-  <div class="modal" style="max-width:580px">
+  <div class="modal" style="max-width:640px">
     <div class="modal-header">
       <div class="modal-date" id="modalDateTitle">—</div>
       <button class="modal-close" onclick="closeTradeModal()">✕</button>
     </div>
 
-    <div class="result-type">
-      <button class="type-btn" id="btnTP" onclick="setType('TP')">✅ TP — Ganado</button>
-      <button class="type-btn" id="btnSL" onclick="setType('SL')">❌ SL — Perdido</button>
+    <!-- TRADE TABS -->
+    <div class="trade-tabs" id="tradeTabs">
+      <button class="trade-tab active" id="tradeTab0" onclick="switchTradeTab(0)">Trade 1</button>
+      <button class="trade-tab" id="tradeTab1" onclick="switchTradeTab(1)">Trade 2</button>
+      <button class="trade-tab" id="tradeTab2" onclick="switchTradeTab(2)">Trade 3</button>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Resultado ($)</label>
-        <input type="number" class="form-input" id="fResultado" placeholder="Ej: 45.50" step="0.01">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Nº trades</label>
-        <input type="number" class="form-input" id="fTrades" placeholder="1" min="1" value="1">
-      </div>
+    <!-- TRADE PANELS (one per trade) -->
+    <div id="tradePanels">
+      <!-- Rendered dynamically -->
     </div>
 
-    <div class="form-row-3">
-      <div class="form-group">
-        <label class="form-label">Par</label>
-        <select class="form-select" id="fPair">
-          <option value="">— Par —</option>
-          <option value="XAUUSD">XAUUSD</option>
-          <option value="EURUSD">EURUSD</option>
-          <option value="GBPUSD">GBPUSD</option>
-          <option value="USDJPY">USDJPY</option>
-          <option value="GBPJPY">GBPJPY</option>
-          <option value="NAS100">NAS100</option>
-          <option value="US30">US30</option>
-          <option value="OTRO">Otro</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Sesión</label>
-        <select class="form-select" id="fSession">
-          <option value="">— Sesión —</option>
-          <option value="Asia">Asia</option>
-          <option value="Londres">Londres</option>
-          <option value="NY">New York</option>
-          <option value="Overlap">Overlap</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Ejecución</label>
-        <select class="form-select" id="fExecution">
-          <option value="">— Ejecución —</option>
-          <option value="buena">✅ Buena</option>
-          <option value="mala">⚠ Mala</option>
-          <option value="emocional">❌ Emocional</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group full">
-        <label class="form-label">Setup</label>
-        <select class="form-select" id="fSetupType">
-          <option value="">— Tipo de setup —</option>
-          <optgroup label="── Smart Money Concepts ──">
-            <option value="BOS+FVG">📐 BOS + FVG</option>
-            <option value="LiquiditySweep">💧 Liquidity Sweep</option>
-            <option value="OB">🟦 Order Block</option>
-            <option value="CHOCH+OB">🔄 CHoCH + OB</option>
-            <option value="MSS">⚡ MSS</option>
-            <option value="Breaker">🔲 Breaker Block</option>
-          </optgroup>
-          <optgroup label="── CRT / Correlación ──">
-            <option value="Rango CRT">📊 Rango CRT</option>
-            <option value="Rango CRT+SMT">📊🔗 Rango CRT + SMT</option>
-            <option value="SMT">🔗 SMT</option>
-            <option value="CHOCH+OB">🔗 SMT / Correlación</option>
-          </optgroup>
-          <optgroup label="── Personalizado ──">
-            <option value="Custom">✏️ Custom</option>
-          </optgroup>
-        </select>
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group full">
-        <label class="form-label">Setup · Razón de entrada (detalle)</label>
-        <input type="text" class="form-input" id="fSetup" placeholder="Ej: BOS en H1 + FVG H4 como entrada">
-      </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group full">
-        <label class="form-label">Notas</label>
-        <textarea class="form-textarea" id="fNotas" placeholder="¿Qué salió bien? ¿Qué mejorar? ¿Cómo fue la ejecución?"></textarea>
-      </div>
-    </div>
-
-    <div class="form-group" style="margin-bottom:14px">
-      <label class="form-label">Screenshots (máx. 3)</label>
-      <div class="img-slots">
-        <div class="img-slot" id="imgSlot0" onclick="triggerImgUpload(0)">
-          <span class="img-slot-ico">📊</span>
-          <span class="img-slot-lbl">Par operado</span>
-          <button class="img-slot-del" id="imgDel0" onclick="removeImg(event,0)">✕</button>
-        </div>
-        <div class="img-slot" id="imgSlot1" onclick="triggerImgUpload(1)">
-          <span class="img-slot-ico">🔗</span>
-          <span class="img-slot-lbl">Correlación</span>
-          <button class="img-slot-del" id="imgDel1" onclick="removeImg(event,1)">✕</button>
-        </div>
-        <div class="img-slot" id="imgSlot2" onclick="triggerImgUpload(2)">
-          <span class="img-slot-ico">🧠</span>
-          <span class="img-slot-lbl">SMT / Confirmación</span>
-          <button class="img-slot-del" id="imgDel2" onclick="removeImg(event,2)">✕</button>
-        </div>
-      </div>
-      <input type="file" id="fImagenMulti" accept="image/*" style="display:none" onchange="handleMultiImage(event)">
+    <!-- DAY SUMMARY -->
+    <div class="day-summary-bar" id="daySummaryBar">
+      <span class="day-summary-label">P&L del día</span>
+      <span class="day-summary-val" id="daySummaryVal">$0.00</span>
+      <span class="day-summary-trades" id="daySummaryTrades">0 trades activos</span>
     </div>
 
     <div class="modal-actions">
@@ -411,10 +292,29 @@
   </div>
 </div>
 
+<!-- HEATMAP PANEL -->
+<div class="heatmap-panel" id="heatmapPanel">
+  <div class="heatmap-box">
+    <div class="heatmap-header">
+      <div>
+        <div class="heatmap-title">🔥 Mapa de Calor — Rendimiento por Sesión y Día</div>
+        <div class="heatmap-sub">P&amp;L acumulado · Londres / NY · Basado en todos tus trades registrados</div>
+      </div>
+      <button class="intel-close" onclick="closeHeatmap()">✕</button>
+    </div>
+    <div class="heatmap-tabs">
+      <button class="heatmap-tab active" id="htab-hora" onclick="switchHeatmapTab('hora')">Por Hora</button>
+      <button class="heatmap-tab" id="htab-dia" onclick="switchHeatmapTab('dia')">Por Día de Semana</button>
+      <button class="heatmap-tab" id="htab-sesion" onclick="switchHeatmapTab('sesion')">Por Sesión</button>
+    </div>
+    <div id="heatmapContent"></div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- App script — deferred for faster paint -->
+<input type="file" id="fImagenMulti" accept="image/*" style="display:none" onchange="handleMultiImage(event)">
 <script src="script.js" defer></script>
 </body>
 </html>

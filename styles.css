@@ -239,7 +239,22 @@ body { font-family: var(--sans); background: var(--bg); color: var(--text); min-
 /* MODALS */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
 .modal-overlay.open { display: flex; }
-.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 26px; width: 640px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(20,32,46,0.18), 0 0 0 1px rgba(20,32,46,0.03); animation: modalIn 0.22s cubic-bezier(.34,1.4,.64,1); }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 26px; width: 640px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(20,32,46,0.18), 0 0 0 1px rgba(20,32,46,0.03); animation: modalIn 0.22s cubic-bezier(.34,1.4,.64,1); position: relative; }
+.modal > * { position: relative; z-index: 1; }
+.modal-ferrari-watermark {
+  display: none;
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 160'%3E%3Cg fill='%23D9534F'%3E%3Cpath d='M18 108c0-6 5-11 12-13l26-8 22-30c6-8 15-13 25-13h58c9 0 17 4 23 11l20 24 40 6c14 2 24 14 24 28v9c0 7-6 13-13 13h-14c-1-16-14-28-30-28s-29 12-30 28H132c-1-16-14-28-30-28s-29 12-30 28H30c-7 0-12-5-12-12z'/%3E%3Cpath d='M84 46l-16 24h74l-4-24c-1-6-6-10-12-10H96c-6 0-11 4-12 10z' opacity='0.85'/%3E%3C/g%3E%3Cg fill='%23111'%3E%3Ccircle cx='102' cy='122' r='22'/%3E%3Ccircle cx='268' cy='122' r='22'/%3E%3C/g%3E%3Cg fill='%23FAF9F5'%3E%3Ccircle cx='102' cy='122' r='9'/%3E%3Ccircle cx='268' cy='122' r='9'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center 60%;
+  background-size: 82%;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+  filter: grayscale(0.15);
+}
+.modal-ferrari-watermark.show { display: block; }
 @keyframes modalIn { from{opacity:0;transform:scale(0.95) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
 
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }

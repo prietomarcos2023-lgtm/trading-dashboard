@@ -270,6 +270,8 @@ function openDayModal(k){
   currentModalKey=k;activeTradeTab=0;
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('modalDateTitle').textContent=parseInt(d)+' de '+meses[parseInt(m)-1]+' '+y;
+  const fw=document.getElementById('ferrariWatermark');
+  if(fw)fw.classList.toggle('show',Math.random()<0.15);
   const existing=data[k]?migrateEntry(data[k]):null;
   const existingTrades=existing?existing.trades||[]:[]; 
   currentDayTrades=[0,1,2].map(function(i){

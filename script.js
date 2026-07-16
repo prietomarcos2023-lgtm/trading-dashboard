@@ -35,6 +35,15 @@ function switchAccount(id){
   const acct=accounts.find(a=>a.id===id);
   if(acct)config.capital=config.capital||acct.balanceInicial||5000;
   migrateAllData();renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();
+// Inject PDF button
+(function(){
+  var existing=document.getElementById('btnExportPDF');
+  if(!existing){
+    var hdrRight=document.querySelector('.header-right');
+    if(hdrRight){var btn=document.createElement('button');btn.id='btnExportPDF';btn.className='hdr-btn';btn.textContent='PDF Mes';btn.onclick=exportCalendarPDF;btn.title='Descargar calendario del mes como PDF';hdrRight.appendChild(btn);}
+  }
+})();
+
 }
 
 function switchToGlobal(){viewMode='global';renderAccountBar();renderCalendarGlobal();renderSideAcctInfo();renderRiskCard();}
@@ -243,10 +252,10 @@ function renderCalendar(){
     const activeTrades=getDayActiveTrades(e);
     const tradeCountHtml=activeTrades.length>1?'<div style="font-size:7px;color:var(--muted);font-family:var(--mono)">'+activeTrades.length+' trades</div>':'';
     const pairs=[...new Set(activeTrades.map(t=>t.pair).filter(Boolean))];
-    const pairHtml=pairs.length?'<div style="font-size:7px;color:var(--gold);opacity:0.7;margin-top:1px;font-family:var(--mono)">'+pairs.join('.')+'</div>':'';
+    const pairHtml=pairs.length?'<div style="font-size:10px;color:#111;font-weight:700;margin-top:2px;font-family:var(--mono);letter-spacing:0.3px">'+pairs.join(' · ')+'</div>':'';
     let badgeHtml='';
     if(activeTrades.length){const types=activeTrades.map(t=>t.type).filter(Boolean);const hasTP=types.includes('TP'),hasSL=types.includes('SL');if(hasTP&&hasSL)badgeHtml='<div class="day-badge badge-mixed">+-</div>';else if(hasTP)badgeHtml='<div class="day-badge badge-tp">TP</div>';else if(hasSL)badgeHtml='<div class="day-badge badge-sl">SL</div>';}
-    const resultHtml=hasData?'<div class="day-result '+(r>=0?'pos':'neg')+'" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:700;white-space:nowrap;text-align:center;">'+fmt$(r)+'</div>':'';
+    const resultHtml=hasData?'<div class="day-result '+(r>=0?'pos':'neg')+'" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:15px;font-weight:700;white-space:nowrap;text-align:center;">'+fmt$(r)+'</div>':'';
     html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+resultHtml+tradeCountHtml+pairHtml+(hasData?'<div style="position:absolute;inset:0;background:'+(r>=0?'rgba(62,207,122,0.06)':'rgba(224,85,85,0.06)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
   }
   document.getElementById('calendar').innerHTML=html;
@@ -598,6 +607,50 @@ function renderHeatmapSesion(trades){
   html+='</div>';return html;
 }
 
+
+function exportCalendarPDF(){
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const acct=accounts.find(function(a){return a.id===activeAccountId;});
+  const label=acct?acct.label||acct.broker:'Cuenta';
+  const firstDay=new Date(curYear,curMonth,1).getDay();
+  const offset=(firstDay+6)%7;
+  const daysInMonth=new Date(curYear,curMonth+1,0).getDate();
+  const monthEntries=getMonthEntries(curYear,curMonth);
+  let totalPnl=0,greenCount=0,redCount=0;
+  monthEntries.forEach(function(e){const r=getDayTotalResult(e);if(r!==null){totalPnl+=r;if(r>0)greenCount++;else redCount++;}});
+
+  let cells='';
+  const dias=['LUN','MAR','MIE','JUE','VIE','SAB','DOM'];
+  dias.forEach(function(d){cells+='<div class="cal-hdr">'+d+'</div>';});
+  for(let i=0;i<offset;i++)cells+='<div class="cal-cell empty"></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const k=key(curYear,curMonth,d);
+    const e=data[k]?migrateEntry(data[k]):null;
+    const r=getDayTotalResult(e);
+    const hasData=r!==null;
+    const activeTrades=getDayActiveTrades(e||{});
+    const pairs=[...new Set(activeTrades.map(function(t){return t.pair;}).filter(Boolean))];
+    const pairStr=pairs.join(' · ');
+    const types=activeTrades.map(function(t){return t.type;}).filter(Boolean);
+    const badge=types.includes('TP')&&types.includes('SL')?'±':types.includes('TP')?'TP':types.includes('SL')?'SL':'';
+    const bgColor=hasData?(r>=0?'#e8f5e9':'#ffebee'):'#fff';
+    const pnlColor=hasData?(r>=0?'#1b5e20':'#b71c1c'):'';
+    cells+='<div class="cal-cell" style="background:'+bgColor+'">';
+    cells+='<div class="day-n">'+d+(badge?'<span class="bdg '+(r>=0?'tp':'sl')+'">'+badge+'</span>':'')+'</div>';
+    if(hasData)cells+='<div class="pnl" style="color:'+pnlColor+'">'+fmt$(r)+'</div>';
+    if(pairStr)cells+='<div class="pair">'+pairStr+'</div>';
+    cells+='</div>';
+  }
+
+  const stats=calcStats();
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Mareblu Journal - '+meses[curMonth]+' '+curYear+'</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;padding:20px;color:#111;}h1{font-size:18px;margin-bottom:4px;}h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:16px;}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #111;padding-bottom:12px;}.stats{display:flex;gap:24px;}.stat{text-align:center;}.stat-val{font-size:16px;font-weight:700;}.stat-lbl{font-size:10px;color:#777;}.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}.cal-hdr{text-align:center;font-size:10px;font-weight:700;color:#555;padding:4px 0;border-bottom:1px solid #ccc;}.cal-cell{min-height:80px;border:1px solid #ddd;border-radius:4px;padding:6px;display:flex;flex-direction:column;}.cal-cell.empty{border:none;background:transparent;}.day-n{font-size:10px;font-weight:700;color:#333;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}.bdg{font-size:8px;padding:1px 4px;border-radius:3px;font-weight:700;}.bdg.tp{background:#c8e6c9;color:#1b5e20;}.bdg.sl{background:#ffcdd2;color:#b71c1c;}.pnl{font-size:14px;font-weight:700;text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.pair{font-size:9px;font-weight:700;color:#111;text-align:center;margin-top:2px;}.footer{margin-top:16px;font-size:9px;color:#aaa;text-align:right;}@media print{body{padding:10px;}}</style></head><body>';
+  const winPct=stats.totalTrades?(stats.wins.length/stats.totalTrades*100).toFixed(0):0;
+  const result='<div class="header"><div><h1>Mareblu Trading Journal</h1><h2>'+esc(label)+' &mdash; '+meses[curMonth]+' '+curYear+'</h2></div><div class="stats"><div class="stat"><div class="stat-val" style="color:'+(totalPnl>=0?'#1b5e20':'#b71c1c')+'">'+fmt$(totalPnl)+'</div><div class="stat-lbl">P&amp;L Mensual</div></div><div class="stat"><div class="stat-val">'+greenCount+'</div><div class="stat-lbl">Dias verdes</div></div><div class="stat"><div class="stat-val">'+redCount+'</div><div class="stat-lbl">Dias rojos</div></div><div class="stat"><div class="stat-val">'+winPct+'%</div><div class="stat-lbl">Win Rate</div></div><div class="stat"><div class="stat-val">'+stats.totalTrades+'</div><div class="stat-lbl">Trades</div></div></div></div><div class="cal">'+cells+'</div><div class="footer">Mareblu Journal &mdash; Exportado el '+new Date().toLocaleDateString('es-PY')+'</div>';
+  const win=window.open('','_blank');
+  win.document.write(html+result+'</body></html>');
+  win.document.close();
+  setTimeout(function(){win.print();},500);
+}
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){closeTradeModal();closeSettings();closeIntel();closeConsolidado();closeAcctModal();closeHeatmap();}
   if(e.key==='Enter'){if(document.getElementById('settingsModal').classList.contains('open'))saveCapital();else if(document.getElementById('tradeModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT')saveDay();}
@@ -617,4 +670,13 @@ var _ia=accounts.find(function(a){return a.id===activeAccountId;});
 if(_ia&&!config.capital)config.capital=_ia.balanceInicial||5000;
 migrateAllData();
 renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();
+// Inject PDF button
+(function(){
+  var existing=document.getElementById('btnExportPDF');
+  if(!existing){
+    var hdrRight=document.querySelector('.header-right');
+    if(hdrRight){var btn=document.createElement('button');btn.id='btnExportPDF';btn.className='hdr-btn';btn.textContent='PDF Mes';btn.onclick=exportCalendarPDF;btn.title='Descargar calendario del mes como PDF';hdrRight.appendChild(btn);}
+  }
+})();
+
 window.addEventListener('resize',drawEquityChart);

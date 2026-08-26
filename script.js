@@ -40,7 +40,10 @@ function switchAccount(id){
   var existing=document.getElementById('btnExportPDF');
   if(!existing){
     var hdrRight=document.querySelector('.header-right');
-    if(hdrRight){var btn=document.createElement('button');btn.id='btnExportPDF';btn.className='hdr-btn';btn.textContent='PDF Mes';btn.onclick=exportCalendarPDF;btn.title='Descargar calendario del mes como PDF';hdrRight.appendChild(btn);}
+    if(hdrRight){
+      var noteBtn=document.createElement('button');noteBtn.id='btnMonthNote';noteBtn.className='hdr-btn';noteBtn.textContent='Nota Mes';noteBtn.onclick=openMonthNote;noteBtn.title='Escribir un resumen del mes (se incluye en el PDF)';hdrRight.appendChild(noteBtn);
+      var btn=document.createElement('button');btn.id='btnExportPDF';btn.className='hdr-btn';btn.textContent='PDF Mes';btn.onclick=exportCalendarPDF;btn.title='Descargar calendario del mes como PDF';hdrRight.appendChild(btn);
+    }
   }
 })();
 
@@ -254,7 +257,7 @@ function renderCalendar(){
     const pairs=[...new Set(activeTrades.map(t=>t.pair).filter(Boolean))];
     const pairHtml=pairs.length?'<div style="font-size:10px;color:#111;font-weight:700;margin-top:2px;font-family:var(--mono);letter-spacing:0.3px">'+pairs.join(' · ')+'</div>':'';
     let badgeHtml='';
-    if(activeTrades.length){const types=activeTrades.map(t=>t.type).filter(Boolean);const hasTP=types.includes('TP'),hasSL=types.includes('SL');if(hasTP&&hasSL)badgeHtml='<div class="day-badge badge-mixed">+-</div>';else if(hasTP)badgeHtml='<div class="day-badge badge-tp">TP</div>';else if(hasSL)badgeHtml='<div class="day-badge badge-sl">SL</div>';}
+    if(activeTrades.length){const types=activeTrades.map(t=>t.type).filter(Boolean);const hasTP=types.includes('TP'),hasSL=types.includes('SL'),hasBE=types.includes('BE');if(hasTP&&hasSL)badgeHtml='<div class="day-badge badge-mixed">+-</div>';else if(hasTP)badgeHtml='<div class="day-badge badge-tp">TP</div>';else if(hasSL)badgeHtml='<div class="day-badge badge-sl">SL</div>';else if(hasBE)badgeHtml='<div class="day-badge badge-be">BE</div>';}
     const resultHtml=hasData?'<div class="day-result '+(r>=0?'pos':'neg')+'" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:15px;font-weight:700;white-space:nowrap;text-align:center;">'+fmt$(r)+'</div>':'';
     html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+resultHtml+tradeCountHtml+pairHtml+(hasData?'<div style="position:absolute;inset:0;background:'+(r>=0?'rgba(62,207,122,0.06)':'rgba(224,85,85,0.06)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
   }
@@ -322,7 +325,7 @@ function buildTradePanel(t,i){
     imgHTML+='<textarea class="form-textarea" id="imgNota_'+i+'_'+si+'" placeholder="Nota de esta imagen..." rows="2" oninput="onImgNotaInput('+i+','+si+')" style="margin-top:4px;font-size:11px;min-height:38px">'+esc(nota)+'</textarea>';
     imgHTML+='</div>';
   }
-  return '<div class="trade-panel" id="tradePanel'+i+'" style="display:none"><div class="result-type"><button class="type-btn'+(t.type==='TP'?' tp-active':'')+'" id="btnTP_'+i+'" onclick="setTradeType('+i+',\'TP\')">TP Ganado</button><button class="type-btn'+(t.type==='SL'?' sl-active':'')+'" id="btnSL_'+i+'" onclick="setTradeType('+i+',\'SL\')">SL Perdido</button></div><div class="form-row"><div class="form-group"><label class="form-label">Resultado ($)</label><input type="number" class="form-input" id="fRes_'+i+'" placeholder="45.50" step="0.01" value="'+esc(t.result)+'" oninput="onTradeInput('+i+')"></div><div class="form-group"><label class="form-label">Par</label><select class="form-select" id="fPair_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Par --</option>'+pairOpts+'</select></div></div><div class="form-row-3"><div class="form-group"><label class="form-label">Sesion</label><select class="form-select" id="fSess_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Sesion --</option>'+sessOpts+'</select></div><div class="form-group"><label class="form-label">Ejecucion</label><select class="form-select" id="fExec_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Ejecucion --</option>'+execOpts+'</select></div><div class="form-group"><label class="form-label">Setup CRT</label><select class="form-select" id="fSetupType_'+i+'" onchange="onTradeInput('+i+')">'+setupOpts+'</select></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Detalle entrada</label><input type="text" class="form-input" id="fSetup_'+i+'" placeholder="Purge + OB H1 + FVG M5" value="'+esc(t.setup)+'" oninput="onTradeInput('+i+')"></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Notas del trade</label><textarea class="form-textarea" id="fNotas_'+i+'" placeholder="Que salio bien? Que mejorar?" oninput="onTradeInput('+i+')">'+esc(t.notas)+'</textarea></div></div><div class="form-group" style="margin-top:12px"><label class="form-label">Screenshots (3 imagenes con notas)</label>'+imgHTML+'</div></div>';
+  return '<div class="trade-panel" id="tradePanel'+i+'" style="display:none"><div class="result-type"><button class="type-btn'+(t.type==='TP'?' tp-active':'')+'" id="btnTP_'+i+'" onclick="setTradeType('+i+',\'TP\')">TP Ganado</button><button class="type-btn'+(t.type==='BE'?' be-active':'')+'" id="btnBE_'+i+'" onclick="setTradeType('+i+',\'BE\')">BE</button><button class="type-btn'+(t.type==='SL'?' sl-active':'')+'" id="btnSL_'+i+'" onclick="setTradeType('+i+',\'SL\')">SL Perdido</button></div><div class="form-row"><div class="form-group"><label class="form-label">Resultado ($)</label><input type="number" class="form-input" id="fRes_'+i+'" placeholder="45.50" step="0.01" value="'+esc(t.result)+'" oninput="onTradeInput('+i+')"></div><div class="form-group"><label class="form-label">Par</label><select class="form-select" id="fPair_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Par --</option>'+pairOpts+'</select></div></div><div class="form-row-3"><div class="form-group"><label class="form-label">Sesion</label><select class="form-select" id="fSess_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Sesion --</option>'+sessOpts+'</select></div><div class="form-group"><label class="form-label">Ejecucion</label><select class="form-select" id="fExec_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Ejecucion --</option>'+execOpts+'</select></div><div class="form-group"><label class="form-label">Setup CRT</label><select class="form-select" id="fSetupType_'+i+'" onchange="onTradeInput('+i+')">'+setupOpts+'</select></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Detalle entrada</label><input type="text" class="form-input" id="fSetup_'+i+'" placeholder="Purge + OB H1 + FVG M5" value="'+esc(t.setup)+'" oninput="onTradeInput('+i+')"></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Notas del trade</label><textarea class="form-textarea" id="fNotas_'+i+'" placeholder="Que salio bien? Que mejorar?" oninput="onTradeInput('+i+')">'+esc(t.notas)+'</textarea></div></div><div class="form-group" style="margin-top:12px"><label class="form-label">Screenshots (3 imagenes con notas)</label>'+imgHTML+'</div></div>';
 }
 
 function switchTradeTab(idx){
@@ -336,6 +339,7 @@ function switchTradeTab(idx){
 function setTradeType(tradeIdx,type){
   currentDayTrades[tradeIdx].type=type;
   document.getElementById('btnTP_'+tradeIdx).className='type-btn'+(type==='TP'?' tp-active':'');
+  document.getElementById('btnBE_'+tradeIdx).className='type-btn'+(type==='BE'?' be-active':'');
   document.getElementById('btnSL_'+tradeIdx).className='type-btn'+(type==='SL'?' sl-active':'');
   onTradeInput(tradeIdx);
 }
@@ -403,6 +407,29 @@ function viewImg(src,nota){
   overlay.innerHTML=inner;
   overlay.onclick=function(e){if(e.target===overlay)document.body.removeChild(overlay);};
   document.body.appendChild(overlay);
+}
+
+function getMonthNoteKey(){return curYear+'-'+curMonth;}
+function getMonthNote(){config.monthlyNotes=config.monthlyNotes||{};return config.monthlyNotes[getMonthNoteKey()]||'';}
+function saveMonthNoteVal(v){config.monthlyNotes=config.monthlyNotes||{};config.monthlyNotes[getMonthNoteKey()]=v;saveAccountConfig(activeAccountId,config);}
+
+function openMonthNote(){
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  const val=getMonthNote();
+  let inner='<div onclick="event.stopPropagation()" style="background:var(--surface,#fff);border-radius:10px;padding:20px;max-width:480px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,0.3)">';
+  inner+='<div style="font-family:var(--sans,sans-serif);font-weight:700;font-size:15px;margin-bottom:4px;color:var(--text,#111)">Resumen del mes</div>';
+  inner+='<div style="font-family:var(--mono,monospace);font-size:11px;color:var(--muted,#888);margin-bottom:12px">'+meses[curMonth]+' '+curYear+' -- se incluye en el PDF exportado</div>';
+  inner+='<textarea id="monthNoteInput" rows="6" placeholder="Ej: Mes disciplinado, respete 1-5-9. Unico error fue el SL del equilibrio del dia 25..." style="width:100%;font-family:var(--sans,sans-serif);font-size:13px;padding:10px;border:1px solid var(--border2,#ccc);border-radius:8px;resize:vertical;box-sizing:border-box">'+esc(val)+'</textarea>';
+  inner+='<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">';
+  inner+='<button onclick="this.closest(\'[style*=fixed]\').remove()" style="padding:9px 16px;border-radius:8px;border:1px solid var(--border2,#ccc);background:var(--surface2,#eee);cursor:pointer;font-family:var(--mono,monospace);font-size:12px;font-weight:700;color:var(--text2,#555)">Cancelar</button>';
+  inner+='<button onclick="saveMonthNoteVal(document.getElementById(\'monthNoteInput\').value);this.closest(\'[style*=fixed]\').remove();toast(\'Resumen del mes guardado\')" style="padding:9px 16px;border-radius:8px;border:none;background:var(--gold,#B8962E);cursor:pointer;font-family:var(--mono,monospace);font-size:12px;font-weight:700;color:#fff">Guardar</button>';
+  inner+='</div></div>';
+  overlay.innerHTML=inner;
+  overlay.onclick=function(e){if(e.target===overlay)document.body.removeChild(overlay);};
+  document.body.appendChild(overlay);
+  setTimeout(function(){const ta=document.getElementById('monthNoteInput');if(ta)ta.focus();},50);
 }
 
 function saveDay(){
@@ -632,20 +659,23 @@ function exportCalendarPDF(){
     const pairs=[...new Set(activeTrades.map(function(t){return t.pair;}).filter(Boolean))];
     const pairStr=pairs.join(' · ');
     const types=activeTrades.map(function(t){return t.type;}).filter(Boolean);
-    const badge=types.includes('TP')&&types.includes('SL')?'±':types.includes('TP')?'TP':types.includes('SL')?'SL':'';
+    const badge=types.includes('TP')&&types.includes('SL')?'±':types.includes('TP')?'TP':types.includes('SL')?'SL':types.includes('BE')?'BE':'';
+    const badgeCls=badge==='BE'?'be':(r>=0?'tp':'sl');
     const bgColor=hasData?(r>=0?'#e8f5e9':'#ffebee'):'#fff';
     const pnlColor=hasData?(r>=0?'#1b5e20':'#b71c1c'):'';
     cells+='<div class="cal-cell" style="background:'+bgColor+'">';
-    cells+='<div class="day-n">'+d+(badge?'<span class="bdg '+(r>=0?'tp':'sl')+'">'+badge+'</span>':'')+'</div>';
+    cells+='<div class="day-n">'+d+(badge?'<span class="bdg '+badgeCls+'">'+badge+'</span>':'')+'</div>';
     if(hasData)cells+='<div class="pnl" style="color:'+pnlColor+'">'+fmt$(r)+'</div>';
     if(pairStr)cells+='<div class="pair">'+pairStr+'</div>';
     cells+='</div>';
   }
 
   const stats=calcStats();
-  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Mareblu Journal - '+meses[curMonth]+' '+curYear+'</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;padding:20px;color:#111;}h1{font-size:18px;margin-bottom:4px;}h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:16px;}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #111;padding-bottom:12px;}.stats{display:flex;gap:24px;}.stat{text-align:center;}.stat-val{font-size:16px;font-weight:700;}.stat-lbl{font-size:10px;color:#777;}.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}.cal-hdr{text-align:center;font-size:10px;font-weight:700;color:#555;padding:4px 0;border-bottom:1px solid #ccc;}.cal-cell{min-height:80px;border:1px solid #ddd;border-radius:4px;padding:6px;display:flex;flex-direction:column;}.cal-cell.empty{border:none;background:transparent;}.day-n{font-size:10px;font-weight:700;color:#333;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}.bdg{font-size:8px;padding:1px 4px;border-radius:3px;font-weight:700;}.bdg.tp{background:#c8e6c9;color:#1b5e20;}.bdg.sl{background:#ffcdd2;color:#b71c1c;}.pnl{font-size:14px;font-weight:700;text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.pair{font-size:9px;font-weight:700;color:#111;text-align:center;margin-top:2px;}.footer{margin-top:16px;font-size:9px;color:#aaa;text-align:right;}@media print{body{padding:10px;}}</style></head><body>';
+  const monthNote=getMonthNote();
+  const noteHtml=monthNote?'<div class="month-note"><div class="month-note-lbl">Resumen del mes</div><div class="month-note-txt">'+esc(monthNote).replace(/\n/g,'<br>')+'</div></div>':'';
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Mareblu Journal - '+meses[curMonth]+' '+curYear+'</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;padding:20px;color:#111;}h1{font-size:18px;margin-bottom:4px;}h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:16px;}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #111;padding-bottom:12px;}.stats{display:flex;gap:24px;}.stat{text-align:center;}.stat-val{font-size:16px;font-weight:700;}.stat-lbl{font-size:10px;color:#777;}.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}.cal-hdr{text-align:center;font-size:10px;font-weight:700;color:#555;padding:4px 0;border-bottom:1px solid #ccc;}.cal-cell{min-height:80px;border:1px solid #ddd;border-radius:4px;padding:6px;display:flex;flex-direction:column;}.cal-cell.empty{border:none;background:transparent;}.day-n{font-size:10px;font-weight:700;color:#333;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}.bdg{font-size:8px;padding:1px 4px;border-radius:3px;font-weight:700;}.bdg.tp{background:#c8e6c9;color:#1b5e20;}.bdg.sl{background:#ffcdd2;color:#b71c1c;}.bdg.be{background:#d6e4f0;color:#2c4f75;}.pnl{font-size:14px;font-weight:700;text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.pair{font-size:9px;font-weight:700;color:#111;text-align:center;margin-top:2px;}.footer{margin-top:16px;font-size:9px;color:#aaa;text-align:right;}.month-note{margin-top:16px;padding:12px 14px;border:1px solid #ddd;border-left:3px solid #B8962E;border-radius:4px;background:#faf9f5;}.month-note-lbl{font-size:10px;font-weight:700;color:#8E7523;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}.month-note-txt{font-size:12px;color:#222;line-height:1.5;white-space:pre-wrap;}@media print{body{padding:10px;}}</style></head><body>';
   const winPct=stats.totalTrades?(stats.wins.length/stats.totalTrades*100).toFixed(0):0;
-  const result='<div class="header"><div><h1>Mareblu Trading Journal</h1><h2>'+esc(label)+' &mdash; '+meses[curMonth]+' '+curYear+'</h2></div><div class="stats"><div class="stat"><div class="stat-val" style="color:'+(totalPnl>=0?'#1b5e20':'#b71c1c')+'">'+fmt$(totalPnl)+'</div><div class="stat-lbl">P&amp;L Mensual</div></div><div class="stat"><div class="stat-val">'+greenCount+'</div><div class="stat-lbl">Dias verdes</div></div><div class="stat"><div class="stat-val">'+redCount+'</div><div class="stat-lbl">Dias rojos</div></div><div class="stat"><div class="stat-val">'+winPct+'%</div><div class="stat-lbl">Win Rate</div></div><div class="stat"><div class="stat-val">'+stats.totalTrades+'</div><div class="stat-lbl">Trades</div></div></div></div><div class="cal">'+cells+'</div><div class="footer">Mareblu Journal &mdash; Exportado el '+new Date().toLocaleDateString('es-PY')+'</div>';
+  const result='<div class="header"><div><h1>Mareblu Trading Journal</h1><h2>'+esc(label)+' &mdash; '+meses[curMonth]+' '+curYear+'</h2></div><div class="stats"><div class="stat"><div class="stat-val" style="color:'+(totalPnl>=0?'#1b5e20':'#b71c1c')+'">'+fmt$(totalPnl)+'</div><div class="stat-lbl">P&amp;L Mensual</div></div><div class="stat"><div class="stat-val">'+greenCount+'</div><div class="stat-lbl">Dias verdes</div></div><div class="stat"><div class="stat-val">'+redCount+'</div><div class="stat-lbl">Dias rojos</div></div><div class="stat"><div class="stat-val">'+winPct+'%</div><div class="stat-lbl">Win Rate</div></div><div class="stat"><div class="stat-val">'+stats.totalTrades+'</div><div class="stat-lbl">Trades</div></div></div></div><div class="cal">'+cells+'</div>'+noteHtml+'<div class="footer">Mareblu Journal &mdash; Exportado el '+new Date().toLocaleDateString('es-PY')+'</div>';
   const win=window.open('','_blank');
   win.document.write(html+result+'</body></html>');
   win.document.close();
@@ -675,7 +705,10 @@ renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();
   var existing=document.getElementById('btnExportPDF');
   if(!existing){
     var hdrRight=document.querySelector('.header-right');
-    if(hdrRight){var btn=document.createElement('button');btn.id='btnExportPDF';btn.className='hdr-btn';btn.textContent='PDF Mes';btn.onclick=exportCalendarPDF;btn.title='Descargar calendario del mes como PDF';hdrRight.appendChild(btn);}
+    if(hdrRight){
+      var noteBtn=document.createElement('button');noteBtn.id='btnMonthNote';noteBtn.className='hdr-btn';noteBtn.textContent='Nota Mes';noteBtn.onclick=openMonthNote;noteBtn.title='Escribir un resumen del mes (se incluye en el PDF)';hdrRight.appendChild(noteBtn);
+      var btn=document.createElement('button');btn.id='btnExportPDF';btn.className='hdr-btn';btn.textContent='PDF Mes';btn.onclick=exportCalendarPDF;btn.title='Descargar calendario del mes como PDF';hdrRight.appendChild(btn);
+    }
   }
 })();
 

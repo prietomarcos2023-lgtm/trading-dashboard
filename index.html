@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Mareblu Trading Journal — Sistema de rendimiento personal">
-<meta name="theme-color" content="#0c0d10">
+<meta name="theme-color" content="#0B0E13">
 <title>Mareblu Trading Journal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -77,6 +77,14 @@
     </div>
   </div>
   <div class="s-section">
+    <div class="s-label">Performance</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="stat-row"><span class="stat-row-label">Profit Factor</span><span class="stat-row-val" id="sProfitFactor">0.00</span></div>
+      <div class="stat-row"><span class="stat-row-label">Expectancy</span><span class="stat-row-val" id="sExpectancy">$0.00</span></div>
+      <div class="stat-row"><span class="stat-row-label">Max Drawdown</span><span class="stat-row-val" id="sMaxDD">$0.00</span></div>
+    </div>
+  </div>
+  <div class="s-section">
     <div class="s-label">Win Rate</div>
     <div class="wr-bar-wrap">
       <div class="wr-bar-top">
@@ -132,9 +140,9 @@
     </div>
     <div class="nav-btns">
       <div class="filter-btns">
-        <button class="filter-btn active-all" id="fbAll"  onclick="setFilter('all')">Todos</button>
-        <button class="filter-btn" id="fbWin"  onclick="setFilter('win')">✓ Ganados</button>
-        <button class="filter-btn" id="fbLoss" onclick="setFilter('loss')">✗ Perdidos</button>
+        <button class="filter-btn active-all" id="fbAll"  onclick="setFilter('all')">ALL <span id="fbAllCount" class="filter-count">0</span></button>
+        <button class="filter-btn" id="fbWin"  onclick="setFilter('win')">WIN <span id="fbWinCount" class="filter-count">0</span></button>
+        <button class="filter-btn" id="fbLoss" onclick="setFilter('loss')">LOSS <span id="fbLossCount" class="filter-count">0</span></button>
       </div>
       <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
       <button class="nav-btn" onclick="changeMonth(1)">›</button>

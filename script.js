@@ -192,7 +192,7 @@ function updateSidebar(){
   document.getElementById('sLosses').textContent=s.losses.length;
   document.getElementById('sTotalTrades').textContent=s.totalTrades+' trades';
   const si=document.getElementById('streakIcon'),sv=document.getElementById('streakVal'),sl=document.getElementById('streakLbl');
-  if(s.streak>0){si.textContent=s.streakType==='win'?'&#128293;':'&#129416;';sv.textContent=s.streak;sv.className='streak-val '+(s.streakType==='win'?'val-win':'val-loss');sl.textContent=s.streakType==='win'?'dias ganadores':'dias perdedores';}
+  if(s.streak>0){si.textContent=s.streakType==='win'?'🔥':'🐢';sv.textContent=s.streak;sv.className='streak-val '+(s.streakType==='win'?'val-win':'val-loss');sl.textContent=s.streakType==='win'?'dias ganadores':'dias perdedores';}
   else{si.textContent='--';sv.textContent='0';sv.className='streak-val';sl.textContent='Sin operaciones';}
   document.getElementById('sBest').textContent=s.best!==null?fmt$(s.best):'--';
   document.getElementById('sWorst').textContent=s.worst!==null?fmt$(s.worst):'--';

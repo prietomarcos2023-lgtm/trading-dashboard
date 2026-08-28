@@ -240,7 +240,7 @@ body {
 .day-cell.best-day  { outline: 1px solid rgba(53,212,154,0.6); outline-offset: 1px; }
 .day-cell.worst-day { outline: 1px solid rgba(255,92,112,0.5); outline-offset: 1px; }
 
-.day-num { font-family: var(--mono); font-size: 10px; font-weight: 600; color: var(--muted); }
+.day-num { font-family: var(--mono); font-size: 15px; font-weight: 700; color: #fff; }
 .day-cell.today .day-num { color: var(--gold); }
 .day-result { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-top: auto; line-height: 1; }
 .day-result.pos { color: var(--win); }

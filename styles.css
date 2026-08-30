@@ -49,7 +49,7 @@ body {
 
 .app {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 360px 1fr;
   grid-template-rows: 52px auto 1fr;
   min-height: 100vh;
 }
@@ -135,10 +135,10 @@ body {
 .capital-val { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--gold); letter-spacing: -0.5px; }
 .capital-change { font-family: var(--mono); font-size: 11px; margin-top: 4px; }
 
-.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; border-radius: var(--r2); background: var(--surface2); border: 1px solid var(--border); transition: border-color 0.15s; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: var(--r2); background: var(--surface2); border: 1px solid var(--border); transition: border-color 0.15s; }
 .stat-row:hover { border-color: var(--border2); }
-.stat-row-label { font-size: 10px; color: var(--text2); }
-.stat-row-val { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+.stat-row-label { font-size: 13px; color: var(--text2); }
+.stat-row-val { font-family: var(--mono); font-size: 15px; font-weight: 700; }
 .val-win  { color: var(--win); }
 .val-loss { color: var(--loss); }
 .val-gold { color: var(--gold); }
@@ -180,11 +180,15 @@ body {
 .risk-neutro::before { background: linear-gradient(90deg, transparent, var(--neu), transparent); }
 .risk-agresivo { background: rgba(53,212,154,0.07); border-color: rgba(53,212,154,0.3); }
 .risk-agresivo::before { background: linear-gradient(90deg, transparent, var(--agg), transparent); }
-.risk-mode { font-family: var(--mono); font-size: 8px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 8px; }
+.risk-mode { font-family: var(--mono); font-size: 15px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; }
 .risk-defensivo .risk-mode { color: var(--def); }
 .risk-neutro .risk-mode    { color: var(--neu); }
 .risk-agresivo .risk-mode  { color: var(--agg); }
-.risk-pct { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--text); line-height: 1; }
+.risk-pct { font-family: var(--mono); font-size: 52px; font-weight: 800; color: var(--text); line-height: 1; animation: riskPulse 2.2s ease-in-out infinite; display: inline-block; }
+@keyframes riskPulse {
+  0%,100% { transform: scale(1); text-shadow: 0 0 0 rgba(0,0,0,0); }
+  50% { transform: scale(1.04); text-shadow: 0 0 18px currentColor; }
+}
 .risk-dollar { font-size: 10px; color: var(--text2); margin-top: 3px; }
 .risk-rr { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 10px; color: var(--text2); }
 .risk-rr-val { font-family: var(--mono); font-weight: 700; color: var(--text); }
@@ -214,11 +218,11 @@ body {
 .nav-btn { width: 30px; height: 30px; border-radius: var(--r2); background: var(--surface2); border: 1px solid var(--border2); color: var(--text2); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; transition: all 0.18s; }
 .nav-btn:hover { border-color: var(--gold); color: var(--gold); }
 
-.cal-headers { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; margin-bottom: 3px; }
+.cal-headers { display: grid; grid-template-columns: repeat(6,1fr); gap: 3px; margin-bottom: 3px; }
 .cal-header { text-align: center; font-size: 8px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; padding: 5px; }
 
 .calendar {
-  display: grid; grid-template-columns: repeat(7,1fr); gap: 3px;
+  display: grid; grid-template-columns: repeat(6,1fr); gap: 3px;
   border: 1px solid rgba(46,155,255,0.5);
   border-radius: 12px;
   padding: 10px;

@@ -3,231 +3,326 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Berserker Mood</title>
+<meta name="description" content="Mareblu Trading Journal — Sistema de rendimiento personal">
+<meta name="theme-color" content="#0B0E13">
+<title>Mareblu Trading Journal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div class="app">
 
-<div class="grain-overlay"></div>
-
-<header class="masthead">
-  <div class="masthead-inner">
-    <h1>BERSERKER MOOD</h1>
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">M</div>
+    <div class="header-brand">
+      <div class="header-title">Trading Journal</div>
+      <div class="header-sub">Mareblu · Sistema de rendimiento</div>
+    </div>
   </div>
-</header>
+  <div class="header-right">
+    <div class="live-chip">
+      <div class="live-dot"></div>
+      <span id="headerCapital">$0.00</span>
+    </div>
+    <button class="hdr-btn intel" onclick="openIntel()">◈ Inteligencia</button>
+    <button class="hdr-btn heatmap-btn" onclick="openHeatmap()">🔥 Mapa de calor</button>
+    <button class="hdr-btn" onclick="openSettings()">⚙ Capital</button>
+    <button class="hdr-btn export-btn" onclick="exportBackup()" title="Exportar todos los datos como JSON">⬇ Backup</button>
+    <button class="hdr-btn export-btn" onclick="importBackup()" title="Restaurar datos desde JSON">⬆ Restaurar</button>
+  </div>
+</div>
 
-<main class="wrap">
+<!-- ACCOUNT BAR -->
+<div class="acct-bar" id="acctBar">
+  <span class="acct-bar-label">Cuenta</span>
+  <div id="acctPills" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"></div>
+  <button class="acct-add-btn" onclick="openAcctModal(null)">＋ Nueva cuenta</button>
+  <button class="acct-global-btn" onclick="openConsolidado()">⊞ Consolidado</button>
+</div>
 
-  <!-- NIVEL GLOBAL -->
-  <section class="card-stage" id="stage-card">
-    <div class="card-corner tl"></div>
-    <div class="card-corner tr"></div>
-    <div class="card-corner bl"></div>
-    <div class="card-corner br"></div>
-    <div class="card-numeral" id="stage-numeral">0</div>
-    <div class="card-body">
-      <span class="card-label">Global Level</span>
-      <h2 class="card-title" id="stage-name">LEVEL 0</h2>
-      <p class="card-desc" id="stage-desc">No sos level alto por planear cosas. Sos level alto por haberlas conseguido.</p>
-      <div class="xp-row">
-        <div class="xp-track">
-          <div class="xp-fill" id="xp-fill"></div>
-        </div>
-        <span class="xp-label" id="xp-label">0 / 0 XP</span>
-      </div>
-      <div class="stacks-row">
-        <span class="mono-tag">TOTAL STACKS</span>
-        <span id="total-stacks">0</span>
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div id="sideAcctInfo"></div>
+  <div class="s-section">
+    <div class="s-label">Motor de riesgo</div>
+    <div id="riskCard">
+      <div class="risk-card risk-neutro">
+        <div class="risk-mode">NEUTRO</div>
+        <div class="risk-pct">0.75%</div>
+        <div class="risk-dollar">—</div>
+        <div class="risk-rr">RR mínimo: <span class="risk-rr-val">1:1.5</span></div>
+        <div class="risk-msg">Registrá trades para activar el motor.</div>
       </div>
     </div>
-  </section>
-
-  <!-- QUESTS ACTIVAS -->
-  <section class="block">
-    <h3 class="block-title"><span class="mono-tag">01</span> Quests activas — Sep/Oct</h3>
-    <div class="grid-quests">
-
-      <div class="quest-card">
-        <span class="quest-tag">QUEST 01 — STRENGTH</span>
-        <h4 class="quest-title">100 KG BENCH PRESS</h4>
-        <div class="goal-value"><span id="bench-current">0</span> kg<span class="goal-target"> / 100 kg</span></div>
-        <div class="bar"><div class="bar-fill bench" id="bench-bar"></div></div>
-        <button class="mini-btn" data-action="add-bench">+ registrar PR</button>
-        <span class="quest-status" id="strength-status"></span>
-      </div>
-
-      <div class="quest-card">
-        <span class="quest-tag">QUEST 02 — TRADING</span>
-        <h4 class="quest-title" id="trading-quest-title">FIRST PAYOUT</h4>
-        <div class="goal-value">Récord: $<span id="trading-record">0</span></div>
-        <div class="goal-target" id="trading-next">Próximo hito: $250</div>
-        <div class="bar"><div class="bar-fill payout" id="payout-bar"></div></div>
-        <div class="quest-mini-stats">
-          <span>LVL <b id="trading-level">0</b></span>
-          <span>XP <b id="trading-xp">0</b></span>
-          <span>STACKS <b id="trading-stacks">0</b></span>
-        </div>
-        <span class="quest-status">Registrá el retiro del mes en la sección 02 ↓</span>
-      </div>
-
-      <div class="quest-card">
-        <span class="quest-tag">QUEST 03 — BODY</span>
-        <h4 class="quest-title">85 KG</h4>
-        <div class="goal-value"><span id="weight-current">90</span> kg<span class="goal-target"> / 85 kg</span></div>
-        <div class="bar"><div class="bar-fill weight" id="weight-bar"></div></div>
-        <button class="mini-btn" data-action="add-weight">+ registrar peso</button>
-        <span class="quest-status" id="body-status"></span>
-      </div>
-
-      <div class="quest-card">
-        <span class="quest-tag">BONUS QUEST</span>
-        <h4 class="quest-title">MI PRIMER AUTO</h4>
-        <div class="goal-value">+5000 XP</div>
-        <p class="quest-hint">Hito de una sola vez, no se mide en progreso — se marca cuando pasa.</p>
-        <button class="mini-btn" data-action="add-car" id="car-btn">Marcar conseguido</button>
-        <span class="quest-status" id="car-status"></span>
-      </div>
-
-      <div class="quest-card">
-        <span class="quest-tag">BONUS QUEST</span>
-        <h4 class="quest-title">RETIRAR A MIS PADRES</h4>
-        <div class="goal-value">+10000 XP</div>
-        <p class="quest-hint">Hito de una sola vez, no se mide en progreso — se marca cuando pasa.</p>
-        <button class="mini-btn" data-action="add-parents" id="parents-btn">Marcar conseguido</button>
-        <span class="quest-status" id="parents-status"></span>
-      </div>
-
+  </div>
+  <div class="s-section">
+    <div class="s-label">Balance</div>
+    <div class="capital-box">
+      <div class="capital-label">Capital actual</div>
+      <div class="capital-val" id="sCapital">$0.00</div>
+      <div class="capital-change" id="sCapitalChange">—</div>
     </div>
-  </section>
-
-  <!-- RETIROS MENSUALES -->
-  <section class="block">
-    <h3 class="block-title"><span class="mono-tag">02</span> Retiros de trading — por mes</h3>
-    <p class="panel-note">Solo cuenta si supera el récord mensual anterior. Retirar menos o igual no suma XP ni desbloquea nada — no se inventa progreso.</p>
-    <div class="grid-months" id="months-grid"></div>
-  </section>
-
-  <!-- HABITOS CLASE S -->
-  <section class="block">
-    <h3 class="block-title"><span class="mono-tag">03</span> Hábitos clase S — el motor diario</h3>
-    <p class="panel-note">Sostienen la ejecución de las quests. No otorgan XP de nivel global directamente.</p>
-    <div class="grid-habits" id="habits-grid"></div>
-  </section>
-
-  <!-- HAKI DEL REY -->
-  <section class="block">
-    <h3 class="block-title"><span class="mono-tag">04</span> Haki del Rey — maxing</h3>
-    <div class="panel haki-panel">
-      <p class="panel-note">Ayuno de luna llena (48/72hs) + meditación concentrada. Maxing de concentración, capacidad intuitiva, metacognición y control de impulsos. 0 XP — es herramienta para ejecutar las quests, no una quest en sí misma.</p>
-      <div class="haki-stats">
-        <div>
-          <span class="goal-label">Veces completado</span>
-          <div class="goal-value" id="haki-count">0</div>
-        </div>
-        <div>
-          <span class="goal-label">Última vez</span>
-          <div class="goal-value" id="haki-last">—</div>
-        </div>
-      </div>
-      <button class="mini-btn" data-action="add-haki">+ registrar ayuno de luna llena</button>
+  </div>
+  <div class="s-section">
+    <div class="s-label">Rendimiento</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="stat-row"><span class="stat-row-label">P&L Total</span><span class="stat-row-val val-win" id="sPnl">$0.00</span></div>
+      <div class="stat-row"><span class="stat-row-label">% Diario</span><span class="stat-row-val" id="sDiario">0.00%</span></div>
+      <div class="stat-row"><span class="stat-row-label">% Semanal</span><span class="stat-row-val" id="sSemanal">0.00%</span></div>
+      <div class="stat-row"><span class="stat-row-label">% Mensual</span><span class="stat-row-val" id="sMensual">0.00%</span></div>
     </div>
-  </section>
-
-  <!-- SKILLS EN PAUSA -->
-  <section class="block">
-    <h3 class="block-title"><span class="mono-tag">05</span> Skills en pausa — 0 XP</h3>
-    <p class="panel-note">Se activan más adelante como quests propias. Por ahora no suman al nivel global.</p>
-    <div class="grid-5">
-      <div class="goal locked">
-        <span class="goal-label">Inglés</span>
-        <div class="goal-value"><span id="english-current">Sin empezar</span></div>
-        <button class="mini-btn" data-action="add-english">+ registrar nivel</button>
+  </div>
+  <div class="s-section">
+    <div class="s-label">Performance</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="stat-row"><span class="stat-row-label">Profit Factor</span><span class="stat-row-val" id="sProfitFactor">0.00</span></div>
+      <div class="stat-row"><span class="stat-row-label">Expectancy</span><span class="stat-row-val" id="sExpectancy">$0.00</span></div>
+      <div class="stat-row"><span class="stat-row-label">Max Drawdown</span><span class="stat-row-val" id="sMaxDD">$0.00</span></div>
+    </div>
+  </div>
+  <div class="s-section">
+    <div class="s-label">Win Rate</div>
+    <div class="wr-bar-wrap">
+      <div class="wr-bar-top">
+        <span style="font-size:10px;color:var(--text2)">Win Rate</span>
+        <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--win)" id="sWinRate">0%</span>
       </div>
-      <div class="goal locked">
-        <span class="goal-label">Sprint 100m</span>
-        <div class="goal-value"><span id="sprint-current">— s</span></div>
-        <button class="mini-btn" data-action="add-sprint">+ registrar tiempo</button>
-      </div>
-      <div class="goal locked static">
-        <span class="goal-label">Piano</span>
-        <div class="goal-value">🔒 Sin activar</div>
-      </div>
-      <div class="goal locked static">
-        <span class="goal-label">Guitarra</span>
-        <div class="goal-value">🔒 Sin activar</div>
-      </div>
-      <div class="goal locked static">
-        <span class="goal-label">Francés</span>
-        <div class="goal-value">🔒 Sin activar</div>
-      </div>
-      <div class="goal locked static">
-        <span class="goal-label">Muay Thai</span>
-        <div class="goal-value">🔒 Sin activar</div>
+      <div class="wr-bar-track"><div class="wr-bar-fill" id="sWinBar" style="width:0%"></div></div>
+      <div class="wr-count-row">
+        <span style="font-size:9px;color:var(--win)">✓ <span id="sWins">0</span></span>
+        <span style="font-size:9px;color:var(--muted)" id="sTotalTrades">0 trades</span>
+        <span style="font-size:9px;color:var(--loss)">✗ <span id="sLosses">0</span></span>
       </div>
     </div>
-  </section>
-
-  <!-- TRADING CRT -->
-  <section class="block">
-    <h3 class="block-title"><span class="mono-tag">06</span> Disciplina de ejecución — CRT</h3>
-    <div class="panel">
-      <form id="trade-form" class="trade-form">
-        <select id="trade-account">
-          <option>FundingPips 5K</option>
-          <option>The5ers 10K</option>
-          <option>MAVEN 10K</option>
-          <option>Otra</option>
-        </select>
-        <select id="trade-rules">
-          <option value="yes">Cumplió reglas (riesgo/RR/1 por día)</option>
-          <option value="no">Rompió alguna regla</option>
-        </select>
-        <select id="trade-result">
-          <option value="win">Ganado</option>
-          <option value="loss">Perdido</option>
-          <option value="be">Break-even</option>
-        </select>
-        <input type="number" id="trade-rr" placeholder="RR obtenido (ej. 2.2)" step="0.1" min="0">
-        <button type="submit" class="mini-btn primary">Registrar operación</button>
-      </form>
-      <p class="hint">Los puntos premian el proceso, no el resultado en $. Ganar rompiendo una regla resta más de lo que suma ganar.</p>
-      <div class="log" id="trade-log"></div>
+  </div>
+  <div class="s-section">
+    <div class="s-label">Racha actual</div>
+    <div class="streak-box" id="streakBox">
+      <div class="streak-icon" id="streakIcon">—</div>
+      <div>
+        <div class="streak-val" id="streakVal">0</div>
+        <div class="streak-lbl" id="streakLbl">Sin operaciones</div>
+      </div>
     </div>
-  </section>
-
-  <!-- FISICO -->
-  <section class="block">
-    <h3 class="block-title"><span class="mono-tag">07</span> Cuerpo — sesiones y cargas</h3>
-    <div class="panel">
-      <form id="gym-form" class="trade-form">
-        <select id="gym-type">
-          <option>Upper B (pull)</option>
-          <option>Upper A (push)</option>
-          <option>Lower A</option>
-          <option>Sprints</option>
-          <option>Cardio bajo impacto</option>
-        </select>
-        <input type="text" id="gym-note" placeholder="Nota breve (opcional)">
-        <button type="submit" class="mini-btn primary">Registrar sesión</button>
-      </form>
-      <div class="log" id="gym-log"></div>
+  </div>
+  <div class="s-section">
+    <div class="s-label">Extremos del mes</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div class="stat-row"><span class="stat-row-label">🏆 Mejor día</span><span class="stat-row-val val-win" id="sBest">—</span></div>
+      <div class="stat-row"><span class="stat-row-label">💀 Peor día</span><span class="stat-row-val val-loss" id="sWorst">—</span></div>
+      <div class="stat-row"><span class="stat-row-label">📅 Días verdes</span><span class="stat-row-val val-win" id="sGreenDays">0</span></div>
+      <div class="stat-row"><span class="stat-row-label">📅 Días rojos</span><span class="stat-row-val val-loss" id="sRedDays">0</span></div>
     </div>
-  </section>
+  </div>
+  <div class="s-section">
+    <div class="s-label">Consistencia semanal</div>
+    <div class="consistency-row" id="consistencyDots"></div>
+    <div style="margin-top:5px;font-size:8px;color:var(--muted);letter-spacing:0.3px">Verde = ganador · Rojo = pérdida · Gris = sin operar</div>
+  </div>
+  <div class="s-section">
+    <div class="chart-wrap">
+      <div class="chart-title">Curva de capital</div>
+      <canvas id="equityChart"></canvas>
+    </div>
+  </div>
+</aside>
 
-  <!-- COFRE / RECOMPENSA VARIABLE -->
-  <div class="chest-toast" id="chest-toast"></div>
-
-  <footer class="foot">
-    <button class="mini-btn ghost" id="reset-btn">Reiniciar datos</button>
-    <span class="foot-note">Los datos viven en este navegador (localStorage). Exportá seguido si querés respaldo.</span>
-    <button class="mini-btn ghost" id="export-btn">Exportar JSON</button>
-  </footer>
-
+<!-- MAIN -->
+<main class="main">
+  <div class="month-nav">
+    <div>
+      <div class="month-title" id="monthTitle">—</div>
+      <div class="month-sub" id="monthSub">0 operaciones registradas</div>
+    </div>
+    <div class="nav-btns">
+      <div class="filter-btns">
+        <button class="filter-btn active-all" id="fbAll"  onclick="setFilter('all')">ALL <span id="fbAllCount" class="filter-count">0</span></button>
+        <button class="filter-btn" id="fbWin"  onclick="setFilter('win')">WIN <span id="fbWinCount" class="filter-count">0</span></button>
+        <button class="filter-btn" id="fbLoss" onclick="setFilter('loss')">LOSS <span id="fbLossCount" class="filter-count">0</span></button>
+      </div>
+      <button class="nav-btn" onclick="changeMonth(-1)">‹</button>
+      <button class="nav-btn" onclick="changeMonth(1)">›</button>
+    </div>
+  </div>
+  <div class="cal-headers">
+    <div class="cal-header">LUN</div><div class="cal-header">MAR</div>
+    <div class="cal-header">MIÉ</div><div class="cal-header">JUE</div>
+    <div class="cal-header">VIE</div><div class="cal-header">SÁB</div>
+    <div class="cal-header">DOM</div>
+  </div>
+  <div class="calendar" id="calendar"></div>
 </main>
+</div>
 
-<script src="script.js"></script>
+<!-- ══════════════════════════════════════
+     TRADE MODAL — MULTI-TRADE
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="tradeModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-date" id="modalDateTitle">—</div>
+      <button class="modal-close" onclick="closeTradeModal()">✕</button>
+    </div>
+
+    <!-- TRADE TABS -->
+    <div class="trade-tabs" id="tradeTabs">
+      <button class="trade-tab active" id="tradeTab0" onclick="switchTradeTab(0)">Trade 1</button>
+      <button class="trade-tab" id="tradeTab1" onclick="switchTradeTab(1)">Trade 2</button>
+      <button class="trade-tab" id="tradeTab2" onclick="switchTradeTab(2)">Trade 3</button>
+    </div>
+
+    <!-- TRADE PANELS (one per trade) -->
+    <div id="tradePanels">
+      <!-- Rendered dynamically -->
+    </div>
+
+    <!-- DAY SUMMARY -->
+    <div class="day-summary-bar" id="daySummaryBar">
+      <span class="day-summary-label">P&L del día</span>
+      <span class="day-summary-val" id="daySummaryVal">$0.00</span>
+      <span class="day-summary-trades" id="daySummaryTrades">0 trades activos</span>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-clear" onclick="clearDay()">Borrar día</button>
+      <button class="btn-cancel" onclick="closeTradeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveDay()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- INTELLIGENCE PANEL -->
+<div class="intel-panel" id="intelPanel">
+  <div class="intel-box">
+    <div class="intel-header">
+      <div>
+        <div class="intel-title">◈ Inteligencia de Trading</div>
+        <div class="intel-sub">Análisis de patrones · Rendimiento por variable · Insights automáticos</div>
+      </div>
+      <button class="intel-close" onclick="closeIntel()">✕</button>
+    </div>
+    <div class="intel-tabs">
+      <button class="intel-tab active" onclick="switchIntelTab('dashboard')">Dashboard</button>
+      <button class="intel-tab" onclick="switchIntelTab('pares')">Por Par</button>
+      <button class="intel-tab" onclick="switchIntelTab('sesiones')">Por Sesión</button>
+      <button class="intel-tab" onclick="switchIntelTab('dias')">Por Día</button>
+      <button class="intel-tab" onclick="switchIntelTab('setups')">Por Setup</button>
+      <button class="intel-tab" onclick="switchIntelTab('insights')">Insights</button>
+    </div>
+    <div id="intelContent"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header">
+      <div class="modal-date">Capital Inicial</div>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div class="form-group" style="margin-bottom:20px">
+      <label class="form-label">Capital inicial ($)</label>
+      <input type="number" class="form-input" id="fCapitalInicial" placeholder="5000" step="0.01" style="font-family:var(--mono);font-size:18px">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">Cancelar</button>
+      <button class="btn-save" onclick="saveCapital()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACCOUNT MODAL -->
+<div class="acct-modal-overlay" id="acctModal">
+  <div class="acct-modal">
+    <div class="acct-modal-title">
+      <span id="acctModalTitle">NUEVA CUENTA</span>
+      <button onclick="closeAcctModal()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div class="acct-form-grid">
+      <div>
+        <div class="acct-form-label">Broker / Firma</div>
+        <input class="acct-form-input" id="acctBroker" placeholder="Maven, FTMO, The5ers...">
+      </div>
+      <div>
+        <div class="acct-form-label">Balance Inicial ($)</div>
+        <input class="acct-form-input" id="acctBalance" type="number" placeholder="50000">
+      </div>
+      <div>
+        <div class="acct-form-label">Tipo</div>
+        <select class="acct-form-select" id="acctTipo">
+          <option value="challenge">Challenge</option>
+          <option value="funded">Funded</option>
+          <option value="personal">Personal</option>
+        </select>
+      </div>
+      <div>
+        <div class="acct-form-label">Fase</div>
+        <select class="acct-form-select" id="acctFase">
+          <option value="fase1">Fase 1</option>
+          <option value="fase2">Fase 2</option>
+          <option value="funded">Funded</option>
+          <option value="n/a">N/A</option>
+        </select>
+      </div>
+      <div>
+        <div class="acct-form-label">Max Drawdown (%)</div>
+        <input class="acct-form-input" id="acctMaxDD" type="number" placeholder="10" step="0.5">
+      </div>
+      <div>
+        <div class="acct-form-label">Profit Target (%)</div>
+        <input class="acct-form-input" id="acctTarget" type="number" placeholder="10" step="0.5">
+      </div>
+      <div class="acct-form-full">
+        <div class="acct-form-label">Etiqueta / Alias (opcional)</div>
+        <input class="acct-form-input" id="acctLabel" placeholder="Ej: Maven 50K — P1">
+      </div>
+    </div>
+    <div class="acct-modal-actions">
+      <button class="acct-btn-danger" id="acctDeleteBtn" onclick="deleteAccount()" style="display:none;margin-right:auto">Eliminar</button>
+      <button class="acct-btn-cancel" onclick="closeAcctModal()">Cancelar</button>
+      <button class="acct-btn-save" onclick="saveAccount()">Guardar cuenta</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONSOLIDADO PANEL -->
+<div class="consolidado-panel" id="consolidadoPanel">
+  <div class="consolidado-box">
+    <div class="cons-title">
+      <span>⊞ CONSOLIDADO GLOBAL — PORTAFOLIO</span>
+      <button onclick="closeConsolidado()" style="background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="consolidadoContent"></div>
+  </div>
+</div>
+
+<!-- HEATMAP PANEL -->
+<div class="heatmap-panel" id="heatmapPanel">
+  <div class="heatmap-box">
+    <div class="heatmap-header">
+      <div>
+        <div class="heatmap-title">🔥 Mapa de Calor — Rendimiento por Sesión y Día</div>
+        <div class="heatmap-sub">P&amp;L acumulado · Londres / NY · Basado en todos tus trades registrados</div>
+      </div>
+      <button class="intel-close" onclick="closeHeatmap()">✕</button>
+    </div>
+    <div class="heatmap-tabs">
+      <button class="heatmap-tab active" id="htab-hora" onclick="switchHeatmapTab('hora')">Por Hora</button>
+      <button class="heatmap-tab" id="htab-dia" onclick="switchHeatmapTab('dia')">Por Día de Semana</button>
+      <button class="heatmap-tab" id="htab-sesion" onclick="switchHeatmapTab('sesion')">Por Sesión</button>
+    </div>
+    <div id="heatmapContent"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fImagenMulti" accept="image/*" style="display:none" onchange="handleMultiImage(event)">
+<script src="script.js" defer></script>
 </body>
 </html>

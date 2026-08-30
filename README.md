@@ -1,4 +1,4 @@
-# Mareblu Trading Journal
+# Journal
 
 Personal trading journal SaaS — CRT / SMC framework  
 Deployed on GitHub Pages · 100% client-side · Zero backend

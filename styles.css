@@ -23,6 +23,17 @@
   --loss:      #FF5C70;
   --loss-bg:   rgba(255,92,112,0.10);
   --loss-dim:  rgba(255,92,112,0.4);
+  /* Calendar-only palette (per reference image) */
+  --cal-win:      #38D9B6;
+  --cal-win-text: #42E0BE;
+  --cal-win-bg:   linear-gradient(180deg, rgba(56,217,182,0.16), rgba(56,217,182,0.07));
+  --cal-win-border: rgba(56,217,182,0.28);
+  --cal-loss:      #FF3030;
+  --cal-loss-bg:   linear-gradient(180deg, rgba(255,48,48,0.13), rgba(255,48,48,0.04));
+  --cal-loss-border: rgba(255,48,48,0.22);
+  --cal-be:      #9AA0AA;
+  --cal-be-bg:   linear-gradient(180deg, rgba(150,155,165,0.09), rgba(150,155,165,0.03));
+  --cal-be-border: rgba(150,155,165,0.18);
   --blue:      #2E9BFF;
   --blue-bg:   rgba(46,155,255,0.10);
   --def:   #FF5C70;
@@ -236,10 +247,12 @@ body {
 }
 .day-cell:hover { border-color: var(--gold); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
 .day-cell.today { border-color: rgba(214,168,79,0.7) !important; box-shadow: 0 0 0 1px rgba(214,168,79,0.2); }
-.day-cell.win-day  { background: var(--win-bg); border-color: rgba(53,212,154,0.25); }
-.day-cell.win-day:hover { border-color: var(--win); box-shadow: 0 4px 16px rgba(53,212,154,0.12); }
-.day-cell.loss-day { background: var(--loss-bg); border-color: rgba(255,92,112,0.22); }
-.day-cell.loss-day:hover { border-color: var(--loss); }
+.day-cell.win-day  { background: var(--cal-win-bg); border-color: var(--cal-win-border); }
+.day-cell.win-day:hover { border-color: var(--cal-win); box-shadow: 0 4px 16px rgba(56,217,182,0.14); }
+.day-cell.loss-day { background: var(--cal-loss-bg); border-color: var(--cal-loss-border); }
+.day-cell.loss-day:hover { border-color: var(--cal-loss); }
+.day-cell.be-day   { background: var(--cal-be-bg); border-color: var(--cal-be-border); }
+.day-cell.be-day:hover { border-color: var(--cal-be); }
 .day-cell.filtered-out { opacity: 0.15; pointer-events: none; }
 .day-cell.best-day  { outline: 1px solid rgba(53,212,154,0.6); outline-offset: 1px; }
 .day-cell.worst-day { outline: 1px solid rgba(255,92,112,0.5); outline-offset: 1px; }
@@ -247,8 +260,9 @@ body {
 .day-num { font-family: var(--mono); font-size: 15px; font-weight: 700; color: #fff; }
 .day-cell.today .day-num { color: var(--gold); }
 .day-result { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-top: auto; line-height: 1; }
-.day-result.pos { color: var(--win); }
-.day-result.neg { color: var(--loss); }
+.day-result.pos { color: var(--cal-win-text); }
+.day-result.neg { color: var(--cal-loss); }
+.day-result.be  { color: var(--cal-be); }
 .day-badge { position: absolute; top: 5px; right: 5px; width: 15px; height: 15px; border-radius: 3px; font-size: 7px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
 .badge-tp     { background: rgba(53,212,154,0.16); color: var(--win); }
 .badge-sl     { background: rgba(255,92,112,0.16); color: var(--loss); }

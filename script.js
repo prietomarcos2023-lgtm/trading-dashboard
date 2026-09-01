@@ -268,9 +268,9 @@ function renderCalendar(){
   for(let d=1;d<=daysInMonth;d++){
     const k=key(curYear,curMonth,d);const e=data[k]?migrateEntry(data[k]):null;
     const isToday=k===TODAY;const r=getDayTotalResult(e);const hasData=r!==null;
-    const isWin=hasData&&r>0,isLoss=hasData&&r<0;
+    const isWin=hasData&&r>0,isLoss=hasData&&r<0,isBE=hasData&&r===0;
     let filteredOut=false;if(curFilter==='win'&&!isWin)filteredOut=true;if(curFilter==='loss'&&!isLoss)filteredOut=true;
-    let classes='day-cell';if(isToday)classes+=' today';if(hasData&&r>0)classes+=' win-day';if(hasData&&r<0)classes+=' loss-day';
+    let classes='day-cell';if(isToday)classes+=' today';if(isWin)classes+=' win-day';if(isLoss)classes+=' loss-day';if(isBE)classes+=' be-day';
     if(filteredOut)classes+=' filtered-out';if(hasData&&r===best&&best>0)classes+=' best-day';if(hasData&&r===worst&&worst<0)classes+=' worst-day';
     const activeTrades=getDayActiveTrades(e);
     const tradeCountHtml=activeTrades.length>1?'<div style="font-size:10px;color:#fff;font-weight:700;font-family:var(--mono)">'+activeTrades.length+' trades</div>':'';
@@ -278,8 +278,8 @@ function renderCalendar(){
     const pairHtml=pairs.length?'<div style="font-size:12px;color:#fff;font-weight:700;margin-top:2px;font-family:var(--mono);letter-spacing:0.3px">'+pairs.join(' · ')+'</div>':'';
     let badgeHtml='';
     if(activeTrades.length){const types=activeTrades.map(t=>t.type).filter(Boolean);const hasTP=types.includes('TP'),hasSL=types.includes('SL'),hasBE=types.includes('BE');if(hasTP&&hasSL)badgeHtml='<div class="day-badge badge-mixed">+-</div>';else if(hasTP)badgeHtml='<div class="day-badge badge-tp">TP</div>';else if(hasSL)badgeHtml='<div class="day-badge badge-sl">SL</div>';else if(hasBE)badgeHtml='<div class="day-badge badge-be">BE</div>';}
-    const resultHtml=hasData?'<div class="day-result '+(r>=0?'pos':'neg')+'" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:15px;font-weight:700;white-space:nowrap;text-align:center;">'+fmt$(r)+'</div>':'';
-    html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+resultHtml+tradeCountHtml+pairHtml+(hasData?'<div style="position:absolute;inset:0;background:'+(r>=0?'rgba(53,212,154,0.09)':'rgba(255,92,112,0.09)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
+    const resultHtml=hasData?'<div class="day-result '+(isWin?'pos':isLoss?'neg':'be')+'" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:15px;font-weight:700;white-space:nowrap;text-align:center;">'+fmt$(r)+'</div>':'';
+    html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+resultHtml+tradeCountHtml+pairHtml+(hasData?'<div style="position:absolute;inset:0;background:'+(isWin?'rgba(56,217,182,0.07)':isLoss?'rgba(255,48,48,0.06)':'rgba(150,155,165,0.05)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
   }
   document.getElementById('calendar').innerHTML=html;
   updateSidebar();renderSideAcctInfo();renderRiskCard();

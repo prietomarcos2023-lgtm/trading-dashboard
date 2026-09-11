@@ -34,7 +34,7 @@ function switchAccount(id){
   data=loadAccountData(id);config=loadAccountConfig(id);
   const acct=accounts.find(a=>a.id===id);
   if(acct)config.capital=config.capital||acct.balanceInicial||5000;
-  migrateAllData();renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();
+  migrateAllData();loadAvisos();renderTicker();renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();
 // Inject PDF button
 (function(){
   var existing=document.getElementById('btnExportPDF');
@@ -742,6 +742,110 @@ function exportCalendarPDF(){
   win.document.close();
   setTimeout(function(){win.print();},500);
 }
+
+// ── TICKER / AVISOS ──────────────────────────────────────────
+(function injectTickerCSS(){
+  if(document.getElementById('tickerStyle'))return;
+  const style=document.createElement('style');
+  style.id='tickerStyle';
+  style.textContent=`
+    .ticker-wrap{
+      width:100%;
+      background:rgba(0,0,0,0.25);
+      border-top:1px solid rgba(255,255,255,0.06);
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      overflow:hidden;
+      height:28px;
+      display:flex;
+      align-items:center;
+    }
+    .ticker-content{
+      display:inline-block;
+      white-space:nowrap;
+      font-family:Arial,sans-serif;
+      font-size:14px;
+      color:#fff;
+      animation:ticker-scroll 30s linear infinite;
+      padding-left:100%;
+    }
+    .ticker-content:hover{ animation-play-state:paused; }
+    @keyframes ticker-scroll{
+      0%  { transform:translateX(0); }
+      100%{ transform:translateX(-100%); }
+    }
+    .aviso-item{
+      display:flex;justify-content:space-between;align-items:center;
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+      border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text2,#ccc);
+    }
+    .aviso-del{
+      background:transparent;border:none;color:rgba(224,85,85,0.7);
+      cursor:pointer;font-size:14px;padding:0 4px;line-height:1;
+    }
+    .aviso-del:hover{color:#e05555;}
+  `;
+  document.head.appendChild(style);
+})();
+
+const LS_AVISOS='mtj_avisos_v1';
+let avisos=[];
+
+function loadAvisos(){
+  try{const r=localStorage.getItem(LS_AVISOS);avisos=r?JSON.parse(r):[];}
+  catch(e){avisos=[];}
+  if(avisos.length===0){
+    avisos=['Objetivo 1:2  —  Mantener riesgo de $30 y targets de $60'];
+    saveAvisos();
+  }
+}
+
+function saveAvisos(){localStorage.setItem(LS_AVISOS,JSON.stringify(avisos));}
+
+function renderTicker(){
+  const el=document.getElementById('tickerContent');
+  const wrap=document.getElementById('tickerWrap');
+  if(!el||!wrap)return;
+  if(avisos.length===0){wrap.style.display='none';return;}
+  wrap.style.display='flex';
+  const separator='   ·   ';
+  el.textContent=avisos.join(separator)+separator;
+  // Speed based on content length
+  const duration=Math.max(15,avisos.join(separator).length*0.3);
+  el.style.animationDuration=duration+'s';
+}
+
+function openAvisos(){
+  renderAvisosList();
+  document.getElementById('avisosModal').classList.add('open');
+}
+function closeAvisos(){document.getElementById('avisosModal').classList.remove('open');}
+
+function renderAvisosList(){
+  const el=document.getElementById('avisosList');if(!el)return;
+  if(avisos.length===0){el.innerHTML='<div style="color:var(--muted,#666);font-size:11px;text-align:center;padding:12px">No hay avisos. Agregá uno arriba.</div>';return;}
+  el.innerHTML=avisos.map((a,i)=>'<div class="aviso-item"><span>'+esc(a)+'</span><button class="aviso-del" onclick="deleteAviso('+i+')" title="Eliminar">✕</button></div>').join('');
+}
+
+function addAviso(){
+  const input=document.getElementById('newAvisoInput');
+  const val=input?input.value.trim():'';
+  if(!val)return;
+  avisos.push(val);saveAvisos();
+  if(input)input.value='';
+  renderAvisosList();renderTicker();
+}
+
+function deleteAviso(idx){
+  avisos.splice(idx,1);saveAvisos();
+  renderAvisosList();renderTicker();
+}
+
+// Close avisos modal on overlay click
+document.addEventListener('click',function(e){
+  const m=document.getElementById('avisosModal');
+  if(m&&e.target===m)closeAvisos();
+});
+
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'){closeTradeModal();closeSettings();closeIntel();closeConsolidado();closeAcctModal();closeHeatmap();}
   if(e.key==='Enter'){if(document.getElementById('settingsModal').classList.contains('open'))saveCapital();else if(document.getElementById('tradeModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT')saveDay();}

@@ -175,35 +175,76 @@ function calcStats(){
   return{cap0,totalPnl,wins,losses,totalTrades:allTrades.length,winRate,monthPnl,monthPct,weekPct,todayPct,streak,streakType,best,worst,greenDays,redDays,monthTraded,profitFactor,expectancy,maxDD,avgWin,avgLoss};
 }
 
+
+function calcMonthStats(){
+  const cap0=config.capital||5000;
+  const monthEntries=getMonthEntries(curYear,curMonth);
+  const monthTraded=monthEntries.filter(e=>getDayTotalResult(e)!==null);
+  const monthPnl=monthTraded.reduce((s,e)=>s+(getDayTotalResult(e)||0),0);
+  const monthPct=cap0?(monthPnl/cap0*100):0;
+  // Individual trades this month
+  const prefix=curYear+'-'+String(curMonth+1).padStart(2,'0')+'-';
+  const monthTrades=[];
+  Object.entries(data).filter(([k])=>k.startsWith(prefix)).forEach(([k,v])=>{
+    const entry=migrateEntry(v);if(!entry)return;
+    (entry.trades||[]).forEach(t=>{if(t.result!==''&&t.result!==undefined)monthTrades.push({...t,result:parseFloat(t.result)||0});});
+  });
+  const wins=monthTrades.filter(t=>t.result>0);
+  const losses=monthTrades.filter(t=>t.result<0);
+  const winRate=monthTrades.length?(wins.length/monthTrades.length*100):0;
+  const grossWin=wins.reduce((s,t)=>s+t.result,0);
+  const grossLoss=Math.abs(losses.reduce((s,t)=>s+t.result,0));
+  const profitFactor=grossLoss>0?(grossWin/grossLoss):(grossWin>0?Infinity:0);
+  const avgWin=wins.length?grossWin/wins.length:0;
+  const avgLoss=losses.length?grossLoss/losses.length:0;
+  const lossRate=monthTrades.length?(losses.length/monthTrades.length*100):0;
+  const expectancy=monthTrades.length?((winRate/100*avgWin)-(lossRate/100*avgLoss)):0;
+  let best=null,worst=null;
+  monthTraded.forEach(e=>{const r=getDayTotalResult(e);if(r===null)return;if(best===null||r>best)best=r;if(worst===null||r<worst)worst=r;});
+  const greenDays=monthTraded.filter(e=>(getDayTotalResult(e)||0)>0).length;
+  const redDays=monthTraded.filter(e=>(getDayTotalResult(e)||0)<0).length;
+  // Max DD this month only
+  let peak=0,cum=0,maxDD=0;
+  const sortedMonthDays=Object.keys(data).filter(k=>k.startsWith(prefix)).sort();
+  sortedMonthDays.forEach(k=>{const e=migrateEntry(data[k]);const r=getDayTotalResult(e);if(r===null)return;cum+=r;if(cum>peak)peak=cum;const dd=peak-cum;if(dd>maxDD)maxDD=dd;});
+  return{wins,losses,totalTrades:monthTrades.length,winRate,profitFactor,expectancy,best,worst,greenDays,redDays,maxDD,monthPnl,monthPct};
+}
+
 function updateSidebar(){
   if(viewMode==='global')return;
-  const s=calcStats();
+  const s=calcStats();       // all-time: balance, streaks, diario/semanal/mensual
+  const m=calcMonthStats();  // este mes: win rate, trades, PF, expectancy, best/worst
+  // Balance (all-time)
   document.getElementById('sCapital').textContent='$'+(s.cap0+s.totalPnl).toFixed(2);
   document.getElementById('headerCapital').textContent='$'+(s.cap0+s.totalPnl).toFixed(2);
   const chg=document.getElementById('sCapitalChange');chg.textContent=fmt$(s.totalPnl);chg.className='capital-change '+(s.totalPnl>=0?'val-win':'val-loss');
-  const pnlEl=document.getElementById('sPnl');pnlEl.textContent=fmt$(s.totalPnl);pnlEl.className='stat-row-val '+(s.totalPnl>=0?'val-win':'val-loss');
+  const pnlEl=document.getElementById('sPnl');pnlEl.textContent=fmt$(m.monthPnl);pnlEl.className='stat-row-val '+(m.monthPnl>=0?'val-win':'val-loss');
   document.getElementById('sDiario').textContent=fmtP(s.todayPct);document.getElementById('sDiario').className='stat-row-val '+(s.todayPct>=0?'val-win':'val-loss');
   document.getElementById('sSemanal').textContent=fmtP(s.weekPct);document.getElementById('sSemanal').className='stat-row-val '+(s.weekPct>=0?'val-win':'val-loss');
-  document.getElementById('sMensual').textContent=fmtP(s.monthPct);document.getElementById('sMensual').className='stat-row-val '+(s.monthPct>=0?'val-win':'val-loss');
-  const wr=s.winRate;
+  document.getElementById('sMensual').textContent=fmtP(m.monthPct);document.getElementById('sMensual').className='stat-row-val '+(m.monthPct>=0?'val-win':'val-loss');
+  // Win Rate — solo este mes
+  const wr=m.winRate;
   document.getElementById('sWinRate').textContent=wr.toFixed(0)+'%';
   document.getElementById('sWinBar').style.width=wr+'%';
-  document.getElementById('sWins').textContent=s.wins.length;
-  document.getElementById('sLosses').textContent=s.losses.length;
-  document.getElementById('sTotalTrades').textContent=s.totalTrades+' trades';
+  document.getElementById('sWins').textContent=m.wins.length;
+  document.getElementById('sLosses').textContent=m.losses.length;
+  document.getElementById('sTotalTrades').textContent=m.totalTrades+' trades este mes';
+  // Racha (all-time sigue siendo racha actual)
   const si=document.getElementById('streakIcon'),sv=document.getElementById('streakVal'),sl=document.getElementById('streakLbl');
   if(s.streak>0){si.textContent=s.streakType==='win'?'🔥':'🐢';sv.textContent=s.streak;sv.className='streak-val '+(s.streakType==='win'?'val-win':'val-loss');sl.textContent=s.streakType==='win'?'dias ganadores':'dias perdedores';}
   else{si.textContent='--';sv.textContent='0';sv.className='streak-val';sl.textContent='Sin operaciones';}
-  document.getElementById('sBest').textContent=s.best!==null?fmt$(s.best):'--';
-  document.getElementById('sWorst').textContent=s.worst!==null?fmt$(s.worst):'--';
-  document.getElementById('sGreenDays').textContent=s.greenDays;
-  document.getElementById('sRedDays').textContent=s.redDays;
+  // Extremos — solo este mes
+  document.getElementById('sBest').textContent=m.best!==null?fmt$(m.best):'--';
+  document.getElementById('sWorst').textContent=m.worst!==null?fmt$(m.worst):'--';
+  document.getElementById('sGreenDays').textContent=m.greenDays;
+  document.getElementById('sRedDays').textContent=m.redDays;
+  // Performance — solo este mes
   const pfEl=document.getElementById('sProfitFactor');
-  if(pfEl){pfEl.textContent=s.profitFactor===Infinity?'∞':s.profitFactor.toFixed(2);pfEl.className='stat-row-val '+(s.profitFactor>=1?'val-win':'val-loss');}
+  if(pfEl){pfEl.textContent=m.profitFactor===Infinity?'∞':m.profitFactor.toFixed(2);pfEl.className='stat-row-val '+(m.profitFactor>=1?'val-win':'val-loss');}
   const expEl=document.getElementById('sExpectancy');
-  if(expEl){expEl.textContent=fmt$(s.expectancy);expEl.className='stat-row-val '+(s.expectancy>=0?'val-win':'val-loss');}
+  if(expEl){expEl.textContent=fmt$(m.expectancy);expEl.className='stat-row-val '+(m.expectancy>=0?'val-win':'val-loss');}
   const ddEl=document.getElementById('sMaxDD');
-  if(ddEl){ddEl.textContent='-$'+s.maxDD.toFixed(2);ddEl.className='stat-row-val '+(s.maxDD>0?'val-loss':'');}
+  if(ddEl){ddEl.textContent='-$'+m.maxDD.toFixed(2);ddEl.className='stat-row-val '+(m.maxDD>0?'val-loss':'');}
   drawConsistency();drawEquityChart();
 }
 

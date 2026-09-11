@@ -33,6 +33,7 @@
     <button class="hdr-btn" onclick="openSettings()">⚙ Capital</button>
     <button class="hdr-btn export-btn" onclick="exportBackup()" title="Exportar todos los datos como JSON">⬇ Backup</button>
     <button class="hdr-btn export-btn" onclick="importBackup()" title="Restaurar datos desde JSON">⬆ Restaurar</button>
+    <button class="hdr-btn" onclick="openAvisos()" id="btnAvisos" title="Gestionar avisos del ticker">📢 Avisos</button>
   </div>
 </div>
 
@@ -136,6 +137,35 @@
       <button class="nav-btn" onclick="changeMonth(1)">›</button>
     </div>
   </div>
+  <!-- TICKER BAR -->
+  <div class="ticker-wrap" id="tickerWrap">
+    <div class="ticker-content" id="tickerContent"></div>
+  </div>
+
+  <!-- AVISOS MODAL -->
+  <div class="modal-overlay" id="avisosModal">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <div class="modal-date">📢 Avisos del ticker</div>
+        <button class="modal-close" onclick="closeAvisos()">✕</button>
+      </div>
+      <div style="padding:12px 0">
+        <div class="form-group" style="margin-bottom:12px">
+          <label class="form-label">Agregar nuevo aviso</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" class="form-input" id="newAvisoInput" placeholder="Ej: Objetivo 1:2 — riesgo $30 target $60" style="flex:1">
+            <button class="btn-save" onclick="addAviso()" style="white-space:nowrap;padding:8px 16px">Agregar</button>
+          </div>
+        </div>
+        <div class="s-label" style="margin-bottom:8px">Avisos activos</div>
+        <div id="avisosList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeAvisos()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="cal-headers">
     <div class="cal-header">LUN</div><div class="cal-header">MAR</div>
     <div class="cal-header">MIÉ</div><div class="cal-header">JUE</div>

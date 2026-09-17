@@ -34,7 +34,7 @@ function switchAccount(id){
   data=loadAccountData(id);config=loadAccountConfig(id);
   const acct=accounts.find(a=>a.id===id);
   if(acct)config.capital=config.capital||acct.balanceInicial||5000;
-  migrateAllData();loadAvisos();renderTicker();renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();
+  migrateAllData();loadAvisos();renderTicker();renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();
 // Inject PDF button
 (function(){
   var existing=document.getElementById('btnExportPDF');
@@ -49,7 +49,7 @@ function switchAccount(id){
 
 }
 
-function switchToGlobal(){viewMode='global';renderAccountBar();renderCalendarGlobal();renderSideAcctInfo();renderRiskCard();}
+function switchToGlobal(){viewMode='global';renderAccountBar();renderCalendarGlobal();renderSideAcctInfo();renderRiskCard();renderStatusPanel();}
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/'/g,'&#39;');}
 
@@ -96,6 +96,77 @@ function renderRiskCard(){
   const acct=accounts.find(a=>a.id===activeAccountId);if(!acct)return;
   const r=calcularRiesgoCuenta(acct);
   el.innerHTML='<div class="risk-card '+r.cssClass+'"><div class="risk-mode">'+r.modo+'</div><div class="risk-pct">'+r.riskPct+'%</div><div class="risk-dollar">$'+r.riskDollar.toFixed(2)+' por trade</div><div class="risk-rr">RR minimo: <span class="risk-rr-val">'+r.rrMin+'</span></div><div class="risk-msg">'+r.mensaje+'</div><div class="dd-bar-wrap"><div class="dd-label"><span>Drawdown vs balance</span><span>'+(r.ddPct>=0?'+':'')+r.ddPct.toFixed(2)+'%</span></div><div class="dd-track"><div class="dd-fill" style="width:'+Math.min(Math.max(-r.ddPct,0),100)+'%;background:'+(r.ddPct<-3?'var(--loss)':r.ddPct<0?'var(--gold)':'var(--win)')+'"></div></div></div></div>';
+}
+
+// ══════════════════════════════════════════════
+// STATUS PANEL — estado challenge/funded + objetivo + tabla calidad
+// (panel lateral vertical junto al calendario)
+// ══════════════════════════════════════════════
+function renderStatusPanel(){
+  const el=document.getElementById('statusPanel');if(!el)return;
+
+  const tableHtml='<div class="sp-block">'+
+    '<div class="sp-label">Calidad de Setup</div>'+
+    '<table class="sp-table"><thead><tr><th>Calidad</th><th>Riesgo</th><th>Enfoque</th></tr></thead><tbody>'+
+    '<tr><td class="sp-cal-a">A+</td><td class="sp-risk">$35&ndash;$40</td><td class="sp-focus">Setup muy bueno</td></tr>'+
+    '<tr><td class="sp-cal-a2">A++</td><td class="sp-risk">$40&ndash;$50</td><td class="sp-focus">Confluencia excepcional</td></tr>'+
+    '</tbody></table>'+
+  '</div>';
+
+  if(viewMode==='global'){
+    el.innerHTML='<div class="sp-block"><div class="sp-status-row"><span class="sp-dot personal"></span><span class="sp-status-label personal">Vista Global</span></div></div>'+tableHtml;
+    return;
+  }
+
+  const acct=accounts.find(function(a){return a.id===activeAccountId;});
+  if(!acct){el.innerHTML=tableHtml;return;}
+
+  const cap0=acct.balanceInicial||5000;
+  const pnl=Object.values(data).filter(function(e){return e&&e.totalResult!==undefined;}).reduce(function(s,e){return s+Number(e.totalResult||0);},0);
+  const balActual=cap0+pnl;
+  const m=calcMonthStats();
+  const monthGain=m.monthPnl;
+  const monthPct=m.monthPct;
+
+  const tipo=acct.tipo||'challenge';
+  const fase=acct.fase||'fase1';
+
+  let statusHtml='',bodyHtml='';
+
+  if(tipo==='funded'){
+    statusHtml='<div class="sp-status-row"><span class="sp-dot funded"></span><span class="sp-status-label funded">Estado Funded</span></div>';
+    bodyHtml='<div class="sp-block">'+
+      '<div class="sp-label">Cuenta Funded</div>'+
+      '<div class="sp-row"><span class="sp-row-key">Capital</span><span class="sp-row-val">$'+cap0.toLocaleString()+'</span></div>'+
+      '<div class="sp-row"><span class="sp-row-key">Actualmente en</span><span class="sp-row-val" style="color:'+(balActual>=cap0?'var(--win)':'var(--loss)')+'">$'+balActual.toFixed(2)+'</span></div>'+
+      '<div class="sp-row"><span class="sp-row-key">Progreso este mes</span><span class="sp-row-val" style="color:'+(monthPct>=0?'var(--win)':'var(--loss)')+'">'+(monthPct>=0?'+':'')+monthPct.toFixed(2)+'%</span></div>'+
+      '<div class="sp-gain-box"><div class="sp-gain-lbl">Conseguido en el mes</div><div class="sp-gain-val" style="color:'+(monthGain>=0?'var(--win)':'var(--loss)')+'">'+fmt$(monthGain)+'</div></div>'+
+    '</div>';
+  }else{
+    const faseLbl=fase==='fase2'?'Fase 2':(fase==='funded'?'Funded':'Fase 1');
+    const isPersonal=tipo==='personal';
+    const label=isPersonal?'Cuenta Personal':('Challenge '+faseLbl);
+    const dotClass=isPersonal?'personal':'challenge';
+    statusHtml='<div class="sp-status-row"><span class="sp-dot '+dotClass+'"></span><span class="sp-status-label '+dotClass+'">Estado '+label+'</span></div>';
+
+    const targetPct=acct.target||10;
+    const targetDollar=cap0*(1+targetPct/100);
+    const progRange=targetDollar-cap0;
+    const reached=balActual>=targetDollar;
+    const remaining=Math.abs(targetDollar-balActual);
+    const progPct=progRange>0?Math.max(0,Math.min(100,((balActual-cap0)/progRange)*100)):0;
+
+    bodyHtml='<div class="sp-block">'+
+      '<div class="sp-label">Target Objetivo</div>'+
+      '<div class="sp-row"><span class="sp-row-key">Objetivo</span><span class="sp-row-val">+'+targetPct+'% &middot; $'+targetDollar.toFixed(0)+'</span></div>'+
+      '<div class="sp-row"><span class="sp-row-key">Actualmente en</span><span class="sp-row-val" style="color:'+(balActual>=cap0?'var(--win)':'var(--loss)')+'">$'+balActual.toFixed(2)+'</span></div>'+
+      '<div class="sp-row"><span class="sp-row-key">'+(reached?'Superado por':'Objetivo')+'</span><span class="sp-row-val" style="color:'+(reached?'var(--win)':'var(--text)')+'">'+(reached?'+':'')+'$'+remaining.toFixed(2)+'</span></div>'+
+      '<div class="sp-progress-wrap"><div class="sp-progress-top"><span>Progreso</span><span>'+progPct.toFixed(0)+'%</span></div><div class="sp-progress-track"><div class="sp-progress-fill" style="width:'+progPct+'%;background:'+(reached?'var(--win)':'var(--gold)')+'"></div></div></div>'+
+      '<div class="sp-gain-box"><div class="sp-gain-lbl">Conseguido en el mes</div><div class="sp-gain-val" style="color:'+(monthGain>=0?'var(--win)':'var(--loss)')+'">'+fmt$(monthGain)+'</div></div>'+
+    '</div>';
+  }
+
+  el.innerHTML='<div class="sp-block">'+statusHtml+'</div>'+bodyHtml+tableHtml;
 }
 
 function key(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');}
@@ -323,7 +394,7 @@ function renderCalendar(){
     html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+resultHtml+tradeCountHtml+pairHtml+(hasData?'<div style="position:absolute;inset:0;background:'+(isWin?'rgba(56,217,182,0.07)':isLoss?'rgba(255,48,48,0.06)':'rgba(150,155,165,0.05)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
   }
   document.getElementById('calendar').innerHTML=html;
-  updateSidebar();renderSideAcctInfo();renderRiskCard();
+  updateSidebar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();
 }
 
 function setFilter(f){
@@ -509,7 +580,7 @@ function saveDay(){
   closeTradeModal();renderCalendar();toast(tradesWithData.length+' trade'+(tradesWithData.length>1?'s':'')+' guardado'+(tradesWithData.length>1?'s':''));
 }
 
-function clearDay(){if(!currentModalKey)return;if(!confirm('Borrar todos los trades de este dia?'))return;delete data[currentModalKey];saveAccountData(activeAccountId,data);if(activeAccountId==='default')localStorage.setItem('mtj_data',JSON.stringify(data));closeTradeModal();renderCalendar();renderSideAcctInfo();renderRiskCard();toast('Dia borrado');}
+function clearDay(){if(!currentModalKey)return;if(!confirm('Borrar todos los trades de este dia?'))return;delete data[currentModalKey];saveAccountData(activeAccountId,data);if(activeAccountId==='default')localStorage.setItem('mtj_data',JSON.stringify(data));closeTradeModal();renderCalendar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();toast('Dia borrado');}
 function closeTradeModal(){document.getElementById('tradeModal').classList.remove('open');currentModalKey=null;}
 
 let editingAcctId=null;
@@ -541,7 +612,7 @@ function saveAccount(){
     if(idx>=0){accounts[idx]=Object.assign({},accounts[idx],{broker:broker,balanceInicial:balance,tipo:tipo,fase:fase,maxDrawdown:maxDD,target:target,label:label});
     const cfg=loadAccountConfig(editingAcctId);cfg.capital=balance;saveAccountConfig(editingAcctId,cfg);if(editingAcctId===activeAccountId)config.capital=balance;}
   }else{const newId='acct_'+Date.now();accounts.push({id:newId,broker:broker,balanceInicial:balance,tipo:tipo,fase:fase,maxDrawdown:maxDD,target:target,label:label,estado:'activa',createdAt:new Date().toISOString()});}
-  saveAccounts();closeAcctModal();renderAccountBar();renderSideAcctInfo();renderRiskCard();toast('Cuenta guardada');
+  saveAccounts();closeAcctModal();renderAccountBar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();toast('Cuenta guardada');
 }
 
 function deleteAccount(){
@@ -560,7 +631,7 @@ function saveCapital(){
   const v=parseFloat(document.getElementById('fCapitalInicial').value);if(!v||v<=0)return;
   config.capital=v;saveAccountConfig(activeAccountId,config);if(activeAccountId==='default')localStorage.setItem('mtj_config',JSON.stringify(config));
   const acctIdx=accounts.findIndex(function(a){return a.id===activeAccountId;});if(acctIdx>=0){accounts[acctIdx].balanceInicial=v;saveAccounts();}
-  closeSettings();renderCalendar();renderSideAcctInfo();renderRiskCard();toast('Capital: $'+v.toFixed(2));
+  closeSettings();renderCalendar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();toast('Capital: $'+v.toFixed(2));
 }
 
 function openConsolidado(){renderConsolidado();document.getElementById('consolidadoPanel').classList.add('open');}
@@ -731,12 +802,12 @@ function exportCalendarPDF(){
     cells+='</div>';
   }
 
-  const stats=calcStats();
+  const m=calcMonthStats();
   const monthNote=getMonthNote();
   const noteHtml=monthNote?'<div class="month-note"><div class="month-note-lbl">Resumen del mes</div><div class="month-note-txt">'+esc(monthNote).replace(/\n/g,'<br>')+'</div></div>':'';
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Mareblu Journal - '+meses[curMonth]+' '+curYear+'</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;padding:20px;color:#111;}h1{font-size:18px;margin-bottom:4px;}h2{font-size:13px;color:#555;font-weight:normal;margin-bottom:16px;}.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;border-bottom:2px solid #111;padding-bottom:12px;}.stats{display:flex;gap:24px;}.stat{text-align:center;}.stat-val{font-size:16px;font-weight:700;}.stat-lbl{font-size:10px;color:#777;}.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}.cal-hdr{text-align:center;font-size:10px;font-weight:700;color:#555;padding:4px 0;border-bottom:1px solid #ccc;}.cal-cell{min-height:80px;border:1px solid #ddd;border-radius:4px;padding:6px;display:flex;flex-direction:column;}.cal-cell.empty{border:none;background:transparent;}.day-n{font-size:10px;font-weight:700;color:#333;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}.bdg{font-size:8px;padding:1px 4px;border-radius:3px;font-weight:700;}.bdg.tp{background:#c8e6c9;color:#1b5e20;}.bdg.sl{background:#ffcdd2;color:#b71c1c;}.bdg.be{background:#d6e4f0;color:#2c4f75;}.pnl{font-size:14px;font-weight:700;text-align:center;flex:1;display:flex;align-items:center;justify-content:center;}.pair{font-size:9px;font-weight:700;color:#111;text-align:center;margin-top:2px;}.footer{margin-top:16px;font-size:9px;color:#aaa;text-align:right;}.month-note{margin-top:16px;padding:12px 14px;border:1px solid #ddd;border-left:3px solid #B8962E;border-radius:4px;background:#faf9f5;}.month-note-lbl{font-size:10px;font-weight:700;color:#8E7523;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;}.month-note-txt{font-size:12px;color:#222;line-height:1.5;white-space:pre-wrap;}@media print{body{padding:10px;}}</style></head><body>';
-  const winPct=stats.totalTrades?(stats.wins.length/stats.totalTrades*100).toFixed(0):0;
-  const result='<div class="header"><div><h1>Mareblu Trading Journal</h1><h2>'+esc(label)+' &mdash; '+meses[curMonth]+' '+curYear+'</h2></div><div class="stats"><div class="stat"><div class="stat-val" style="color:'+(totalPnl>=0?'#1b5e20':'#b71c1c')+'">'+fmt$(totalPnl)+'</div><div class="stat-lbl">P&amp;L Mensual</div></div><div class="stat"><div class="stat-val">'+greenCount+'</div><div class="stat-lbl">Dias verdes</div></div><div class="stat"><div class="stat-val">'+redCount+'</div><div class="stat-lbl">Dias rojos</div></div><div class="stat"><div class="stat-val">'+winPct+'%</div><div class="stat-lbl">Win Rate</div></div><div class="stat"><div class="stat-val">'+stats.totalTrades+'</div><div class="stat-lbl">Trades</div></div></div></div><div class="cal">'+cells+'</div>'+noteHtml+'<div class="footer">Mareblu Journal &mdash; Exportado el '+new Date().toLocaleDateString('es-PY')+'</div>';
+  const winPct=m.totalTrades?(m.wins.length/m.totalTrades*100).toFixed(0):0;
+  const result='<div class="header"><div><h1>Mareblu Trading Journal</h1><h2>'+esc(label)+' &mdash; '+meses[curMonth]+' '+curYear+'</h2></div><div class="stats"><div class="stat"><div class="stat-val" style="color:'+(totalPnl>=0?'#1b5e20':'#b71c1c')+'">'+fmt$(totalPnl)+'</div><div class="stat-lbl">P&amp;L Mensual</div></div><div class="stat"><div class="stat-val">'+greenCount+'</div><div class="stat-lbl">Dias verdes</div></div><div class="stat"><div class="stat-val">'+redCount+'</div><div class="stat-lbl">Dias rojos</div></div><div class="stat"><div class="stat-val">'+winPct+'%</div><div class="stat-lbl">Win Rate</div></div><div class="stat"><div class="stat-val">'+m.totalTrades+'</div><div class="stat-lbl">Trades</div></div></div></div><div class="cal">'+cells+'</div>'+noteHtml+'<div class="footer">Mareblu Journal &mdash; Exportado el '+new Date().toLocaleDateString('es-PY')+'</div>';
   const win=window.open('','_blank');
   win.document.write(html+result+'</body></html>');
   win.document.close();
@@ -864,7 +935,7 @@ config=loadAccountConfig(activeAccountId);
 var _ia=accounts.find(function(a){return a.id===activeAccountId;});
 if(_ia&&!config.capital)config.capital=_ia.balanceInicial||5000;
 migrateAllData();
-renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();
+renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();
 // Inject PDF button
 (function(){
   var existing=document.getElementById('btnExportPDF');

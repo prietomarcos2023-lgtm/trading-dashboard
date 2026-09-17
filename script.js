@@ -390,8 +390,9 @@ function renderCalendar(){
     const pairHtml=pairs.length?'<div style="font-size:12px;color:#fff;font-weight:700;margin-top:2px;font-family:var(--mono);letter-spacing:0.3px">'+pairs.join(' · ')+'</div>':'';
     let badgeHtml='';
     if(activeTrades.length){const types=activeTrades.map(t=>t.type).filter(Boolean);const hasTP=types.includes('TP'),hasSL=types.includes('SL'),hasBE=types.includes('BE');if(hasTP&&hasSL)badgeHtml='<div class="day-badge badge-mixed">+-</div>';else if(hasTP)badgeHtml='<div class="day-badge badge-tp">TP</div>';else if(hasSL)badgeHtml='<div class="day-badge badge-sl">SL</div>';else if(hasBE)badgeHtml='<div class="day-badge badge-be">BE</div>';}
-    const resultHtml=hasData?'<div class="day-result '+(isWin?'pos':isLoss?'neg':'be')+'" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:15px;font-weight:700;white-space:nowrap;text-align:center;">'+fmt$(r)+'</div>':'';
-    html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+resultHtml+tradeCountHtml+pairHtml+(hasData?'<div style="position:absolute;inset:0;background:'+(isWin?'rgba(56,217,182,0.07)':isLoss?'rgba(255,48,48,0.06)':'rgba(150,155,165,0.05)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
+    const resultHtml=hasData?'<div class="day-result '+(isWin?'pos':isLoss?'neg':'be')+'" style="font-size:14px;font-weight:700;white-space:nowrap;text-align:center;line-height:1.15;">'+fmt$(r)+'</div>':'';
+    const centerWrap=(resultHtml||tradeCountHtml||pairHtml)?'<div class="day-cell-center">'+resultHtml+tradeCountHtml+pairHtml+'</div>':'';
+    html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+centerWrap+(hasData?'<div style="position:absolute;inset:0;background:'+(isWin?'rgba(56,217,182,0.07)':isLoss?'rgba(255,48,48,0.06)':'rgba(150,155,165,0.05)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
   }
   document.getElementById('calendar').innerHTML=html;
   updateSidebar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();

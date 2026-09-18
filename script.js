@@ -350,9 +350,12 @@ function renderCalendarGlobal(){
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   document.getElementById('monthTitle').textContent=meses[curMonth]+' '+curYear+' -- Vista Global';
   document.getElementById('monthSub').textContent='Todas las cuentas combinadas';
-  const firstDay=new Date(curYear,curMonth,1).getDay();const offset=(firstDay+6)%7;const daysInMonth=new Date(curYear,curMonth+1,0).getDate();
-  let html='';for(let i=0;i<offset;i++)html+='<div></div>';
+  const daysInMonth=new Date(curYear,curMonth+1,0).getDate();
+  let html='';let leadingDone=false;
   for(let d=1;d<=daysInMonth;d++){
+    const wd=new Date(curYear,curMonth,d).getDay(); // 0=domingo..6=sabado
+    if(wd===0)continue; // domingo: sin celda, mercado cerrado
+    if(!leadingDone){for(let i=0;i<wd-1;i++)html+='<div></div>';leadingDone=true;}
     const k=key(curYear,curMonth,d);let totalPnl=0,hasAny=false;
     accounts.filter(a=>a.estado==='activa').forEach(a=>{const d2=loadAccountData(a.id);const e=d2[k]?migrateEntry(d2[k]):null;const r=getDayTotalResult(e);if(r!==null){totalPnl+=r;hasAny=true;}});
     const isToday=k===TODAY;let cls='day-cell';if(isToday)cls+=' today';if(hasAny&&totalPnl>0)cls+=' win-day';if(hasAny&&totalPnl<0)cls+=' loss-day';
@@ -364,7 +367,7 @@ function renderCalendarGlobal(){
 function renderCalendar(){
   if(viewMode==='global'){renderCalendarGlobal();return;}
   const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const firstDay=new Date(curYear,curMonth,1).getDay();const offset=(firstDay+6)%7;const daysInMonth=new Date(curYear,curMonth+1,0).getDate();
+  const daysInMonth=new Date(curYear,curMonth+1,0).getDate();
   const monthEntries=getMonthEntries(curYear,curMonth);const traded=monthEntries.filter(e=>getDayTotalResult(e)!==null);
   document.getElementById('monthTitle').textContent=meses[curMonth]+' '+curYear;
   let totalMonthTrades=0;traded.forEach(e=>{totalMonthTrades+=(e.trades||[]).filter(t=>t.result!=='').length;});
@@ -376,8 +379,11 @@ function renderCalendar(){
   const fbLossC=document.getElementById('fbLossCount');if(fbLossC)fbLossC.textContent=lossDaysCount;
   let best=null,worst=null;
   monthEntries.forEach(e=>{const r=getDayTotalResult(e);if(r===null)return;if(best===null||r>best)best=r;if(worst===null||r<worst)worst=r;});
-  let html='';for(let i=0;i<offset;i++)html+='<div></div>';
+  let html='';let leadingDone=false;
   for(let d=1;d<=daysInMonth;d++){
+    const wd=new Date(curYear,curMonth,d).getDay(); // 0=domingo..6=sabado
+    if(wd===0)continue; // domingo: sin celda, mercado cerrado
+    if(!leadingDone){for(let i=0;i<wd-1;i++)html+='<div></div>';leadingDone=true;}
     const k=key(curYear,curMonth,d);const e=data[k]?migrateEntry(data[k]):null;
     const isToday=k===TODAY;const r=getDayTotalResult(e);const hasData=r!==null;
     const isWin=hasData&&r>0,isLoss=hasData&&r<0,isBE=hasData&&r===0;

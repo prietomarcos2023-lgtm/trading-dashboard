@@ -663,6 +663,17 @@ body {
   font-size: 8px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 2px; color: var(--muted); margin-bottom: 10px;
 }
+.sp-label-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.sp-label-row .sp-label { margin-bottom: 0; }
+.sp-edit-btn {
+  background: transparent; border: none; color: var(--muted);
+  cursor: pointer; font-size: 12px; padding: 2px 4px; line-height: 1;
+  transition: color 0.15s;
+}
+.sp-edit-btn:hover { color: var(--gold); }
 
 .sp-row {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -698,6 +709,7 @@ body {
 .sp-table tr:last-child td { border-bottom: none; }
 .sp-table .sp-cal-a  { color: var(--gold); font-family: var(--mono); font-weight: 700; }
 .sp-table .sp-cal-a2 { color: var(--win); font-family: var(--mono); font-weight: 700; }
+.sp-table .sp-cal-b  { color: var(--blue); font-family: var(--mono); font-weight: 700; }
 .sp-table .sp-risk   { font-family: var(--mono); color: var(--text); white-space: nowrap; }
 .sp-table .sp-focus  { color: var(--text2); font-size: 9.5px; line-height: 1.3; }
 

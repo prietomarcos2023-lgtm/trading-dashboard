@@ -3,6 +3,17 @@ const LS_ACCOUNTS='mtj_accounts_v1',LS_DATA_PFX='mtj_data_',LS_CFG_PFX='mtj_cfg_
 let accounts=[],activeAccountId='default',viewMode='single',data={},config={capital:5000};
 let curYear=new Date().getFullYear(),curMonth=new Date().getMonth(),curFilter='all';
 const TODAY=new Date().toISOString().split('T')[0];
+const LS_CALVIEW='mtj_calview_v1';
+let calView='dollar';
+function loadCalView(){try{calView=localStorage.getItem(LS_CALVIEW)||'dollar';}catch(e){calView='dollar';}}
+function saveCalView(){try{localStorage.setItem(LS_CALVIEW,calView);}catch(e){}}
+function setViewMode(mode){
+  calView=mode;saveCalView();
+  const bd=document.getElementById('vmDollar'),bp=document.getElementById('vmPercent');
+  if(bd)bd.classList.toggle('active',mode==='dollar');
+  if(bp)bp.classList.toggle('active',mode==='percent');
+  renderCalendar();
+}
 let currentDayTrades=[],activeTradeTab=0,activeImgTradeIdx=0,activeImgSlotIdx=0;
 const EMPTY_TRADE=()=>({type:null,result:'',pair:'',session:'',executionType:'',setupType:'',setup:'',notas:'',images:[null,null,null],imageNotas:['','','']});
 
@@ -396,7 +407,9 @@ function renderCalendar(){
     const pairHtml=pairs.length?'<div style="font-size:12px;color:#fff;font-weight:700;margin-top:2px;font-family:var(--mono);letter-spacing:0.3px">'+pairs.join(' · ')+'</div>':'';
     let badgeHtml='';
     if(activeTrades.length){const types=activeTrades.map(t=>t.type).filter(Boolean);const hasTP=types.includes('TP'),hasSL=types.includes('SL'),hasBE=types.includes('BE');if(hasTP&&hasSL)badgeHtml='<div class="day-badge badge-mixed">+-</div>';else if(hasTP)badgeHtml='<div class="day-badge badge-tp">TP</div>';else if(hasSL)badgeHtml='<div class="day-badge badge-sl">SL</div>';else if(hasBE)badgeHtml='<div class="day-badge badge-be">BE</div>';}
-    const resultHtml=hasData?'<div class="day-result '+(isWin?'pos':isLoss?'neg':'be')+'" style="font-size:14px;font-weight:700;white-space:nowrap;text-align:center;line-height:1.15;">'+fmt$(r)+'</div>':'';
+    const cap0=config.capital||5000;
+    const displayVal=hasData?(calView==='percent'?fmtP((r/cap0)*100):fmt$(r)):'';
+    const resultHtml=hasData?'<div class="day-result '+(isWin?'pos':isLoss?'neg':'be')+'" style="font-size:14px;font-weight:700;white-space:nowrap;text-align:center;line-height:1.15;">'+displayVal+'</div>':'';
     const centerWrap=(resultHtml||tradeCountHtml||pairHtml)?'<div class="day-cell-center">'+resultHtml+tradeCountHtml+pairHtml+'</div>':'';
     html+='<div class="'+classes+'" onclick="openDayModal(\''+k+'\')">'+badgeHtml+'<div class="day-num">'+d+'</div>'+centerWrap+(hasData?'<div style="position:absolute;inset:0;background:'+(isWin?'rgba(56,217,182,0.07)':isLoss?'rgba(255,48,48,0.06)':'rgba(150,155,165,0.05)')+';pointer-events:none;border-radius:inherit"></div>':'')+'</div>';
   }
@@ -942,6 +955,12 @@ config=loadAccountConfig(activeAccountId);
 var _ia=accounts.find(function(a){return a.id===activeAccountId;});
 if(_ia&&!config.capital)config.capital=_ia.balanceInicial||5000;
 migrateAllData();
+loadCalView();
+(function(){
+  var bd=document.getElementById('vmDollar'),bp=document.getElementById('vmPercent');
+  if(bd)bd.classList.toggle('active',calView==='dollar');
+  if(bp)bp.classList.toggle('active',calView==='percent');
+})();
 renderAccountBar();renderCalendar();renderSideAcctInfo();renderRiskCard();renderStatusPanel();
 // Inject PDF button
 (function(){

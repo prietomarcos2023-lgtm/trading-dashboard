@@ -170,6 +170,26 @@
     </div>
   </div>
 
+  <!-- CALIDAD DE SETUP — MODAL DE EDICIÓN -->
+  <div class="modal-overlay" id="setupQModal">
+    <div class="modal" style="max-width:480px">
+      <div class="modal-header">
+        <div class="modal-date">Calidad de Setup</div>
+        <button class="modal-close" onclick="closeSetupQModal()">✕</button>
+      </div>
+      <div style="padding:12px 0">
+        <div class="s-label" style="margin-bottom:8px">Calidad · Riesgo · Target</div>
+        <div id="setupQList" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+        <button class="btn-cancel" style="margin-top:12px;width:100%" onclick="addSetupQRow()">+ Agregar fila</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeSetupQModal()">Cancelar</button>
+        <button class="btn-save" onclick="saveSetupQFromModal()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+
   <div class="board-row">
     <div class="board-cal">
       <div class="cal-headers">

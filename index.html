@@ -128,6 +128,10 @@
       <div class="month-sub" id="monthSub">0 operaciones registradas</div>
     </div>
     <div class="nav-btns">
+      <div class="view-mode-btns">
+        <button class="view-mode-btn active" id="vmDollar" onclick="setViewMode('dollar')">$</button>
+        <button class="view-mode-btn" id="vmPercent" onclick="setViewMode('percent')">%</button>
+      </div>
       <div class="filter-btns">
         <button class="filter-btn active-all" id="fbAll"  onclick="setFilter('all')">ALL <span id="fbAllCount" class="filter-count">0</span></button>
         <button class="filter-btn" id="fbWin"  onclick="setFilter('win')">WIN <span id="fbWinCount" class="filter-count">0</span></button>

@@ -14,6 +14,68 @@ function setViewMode(mode){
   if(bp)bp.classList.toggle('active',mode==='percent');
   renderCalendar();
 }
+
+// ══ CALIDAD DE SETUP — editable ══
+const LS_SETUPQ='mtj_setup_quality_v1';
+const SETUPQ_DEFAULT=[
+  {cal:'B+',riesgo:'$50',target:'$75'},
+  {cal:'A+',riesgo:'$60',target:'$100'},
+  {cal:'A++',riesgo:'$60',target:'$150'}
+];
+let setupQuality=[];
+function loadSetupQ(){
+  let parsed=null;
+  try{const r=localStorage.getItem(LS_SETUPQ);parsed=r?JSON.parse(r):null;}catch(e){parsed=null;}
+  setupQuality=(parsed&&Array.isArray(parsed)&&parsed.length)?parsed:SETUPQ_DEFAULT.map(function(r){return Object.assign({},r);});
+  if(!parsed)saveSetupQ();
+}
+function saveSetupQ(){try{localStorage.setItem(LS_SETUPQ,JSON.stringify(setupQuality));}catch(e){}}
+function getSetupQTierClass(cal){
+  const c=(cal||'').toUpperCase();
+  if(c.indexOf('++')>=0)return'sp-cal-a2';
+  if(c.charAt(0)==='A')return'sp-cal-a';
+  if(c.charAt(0)==='B')return'sp-cal-b';
+  return'sp-cal-b';
+}
+function renderSetupQTable(){
+  let rows='';
+  setupQuality.forEach(function(row){
+    rows+='<tr><td class="'+getSetupQTierClass(row.cal)+'">'+esc(row.cal)+'</td><td class="sp-risk">'+esc(row.riesgo)+'</td><td class="sp-risk">'+esc(row.target)+'</td></tr>';
+  });
+  return '<div class="sp-block">'+
+    '<div class="sp-label-row"><div class="sp-label">Calidad de Setup</div><button class="sp-edit-btn" onclick="openSetupQModal()" title="Editar tabla">&#9998;</button></div>'+
+    '<table class="sp-table"><thead><tr><th>Calidad</th><th>Riesgo</th><th>Target</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+  '</div>';
+}
+function openSetupQModal(){renderSetupQList();document.getElementById('setupQModal').classList.add('open');}
+function closeSetupQModal(){document.getElementById('setupQModal').classList.remove('open');}
+function renderSetupQList(){
+  const el=document.getElementById('setupQList');if(!el)return;
+  el.innerHTML=setupQuality.map(function(row,i){
+    return '<div style="display:flex;gap:6px;align-items:center">'+
+      '<input type="text" class="form-input" style="width:64px" value="'+esc(row.cal)+'" id="sqCal_'+i+'" placeholder="A+">'+
+      '<input type="text" class="form-input" style="width:80px" value="'+esc(row.riesgo)+'" id="sqRiesgo_'+i+'" placeholder="$60">'+
+      '<input type="text" class="form-input" style="flex:1" value="'+esc(row.target)+'" id="sqTarget_'+i+'" placeholder="$100">'+
+      '<button class="aviso-del" onclick="removeSetupQRow('+i+')" title="Eliminar">&#10005;</button>'+
+    '</div>';
+  }).join('');
+}
+function syncSetupQFromDOM(){
+  setupQuality.forEach(function(row,i){
+    const c=document.getElementById('sqCal_'+i),r=document.getElementById('sqRiesgo_'+i),t=document.getElementById('sqTarget_'+i);
+    if(c)row.cal=c.value;
+    if(r)row.riesgo=r.value;
+    if(t)row.target=t.value;
+  });
+}
+function addSetupQRow(){syncSetupQFromDOM();setupQuality.push({cal:'',riesgo:'',target:''});renderSetupQList();}
+function removeSetupQRow(idx){syncSetupQFromDOM();setupQuality.splice(idx,1);renderSetupQList();}
+function saveSetupQFromModal(){
+  syncSetupQFromDOM();
+  const rows=setupQuality.filter(function(row){return row.cal||row.riesgo||row.target;});
+  setupQuality=rows.length?rows:SETUPQ_DEFAULT.map(function(r){return Object.assign({},r);});
+  saveSetupQ();closeSetupQModal();renderStatusPanel();toast('Tabla de calidad actualizada');
+}
 let currentDayTrades=[],activeTradeTab=0,activeImgTradeIdx=0,activeImgSlotIdx=0;
 const EMPTY_TRADE=()=>({type:null,result:'',pair:'',session:'',executionType:'',setupType:'',setup:'',notas:'',images:[null,null,null],imageNotas:['','','']});
 
@@ -116,13 +178,7 @@ function renderRiskCard(){
 function renderStatusPanel(){
   const el=document.getElementById('statusPanel');if(!el)return;
 
-  const tableHtml='<div class="sp-block">'+
-    '<div class="sp-label">Calidad de Setup</div>'+
-    '<table class="sp-table"><thead><tr><th>Calidad</th><th>Riesgo</th><th>Enfoque</th></tr></thead><tbody>'+
-    '<tr><td class="sp-cal-a">A+</td><td class="sp-risk">$35&ndash;$40</td><td class="sp-focus">Setup muy bueno</td></tr>'+
-    '<tr><td class="sp-cal-a2">A++</td><td class="sp-risk">$40&ndash;$50</td><td class="sp-focus">Confluencia excepcional</td></tr>'+
-    '</tbody></table>'+
-  '</div>';
+  const tableHtml=renderSetupQTable();
 
   if(viewMode==='global'){
     el.innerHTML='<div class="sp-block"><div class="sp-status-row"><span class="sp-dot personal"></span><span class="sp-status-label personal">Vista Global</span></div></div>'+tableHtml;
@@ -938,7 +994,7 @@ document.addEventListener('click',function(e){
 });
 
 document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){closeTradeModal();closeSettings();closeIntel();closeConsolidado();closeAcctModal();closeHeatmap();}
+  if(e.key==='Escape'){closeTradeModal();closeSettings();closeIntel();closeConsolidado();closeAcctModal();closeHeatmap();closeSetupQModal();}
   if(e.key==='Enter'){if(document.getElementById('settingsModal').classList.contains('open'))saveCapital();else if(document.getElementById('tradeModal').classList.contains('open')&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT')saveDay();}
 });
 var tm=document.getElementById('tradeModal');if(tm)tm.addEventListener('click',function(e){if(e.target===e.currentTarget)closeTradeModal();});
@@ -947,6 +1003,7 @@ var ip=document.getElementById('intelPanel');if(ip)ip.addEventListener('click',f
 var cp=document.getElementById('consolidadoPanel');if(cp)cp.addEventListener('click',function(e){if(e.target===e.currentTarget)closeConsolidado();});
 var am=document.getElementById('acctModal');if(am)am.addEventListener('click',function(e){if(e.target===e.currentTarget)closeAcctModal();});
 var hp=document.getElementById('heatmapPanel');if(hp)hp.addEventListener('click',function(e){if(e.target===e.currentTarget)closeHeatmap();});
+var sqm=document.getElementById('setupQModal');if(sqm)sqm.addEventListener('click',function(e){if(e.target===e.currentTarget)closeSetupQModal();});
 
 loadAccounts();
 migrateToMultiAccount();
@@ -956,6 +1013,7 @@ var _ia=accounts.find(function(a){return a.id===activeAccountId;});
 if(_ia&&!config.capital)config.capital=_ia.balanceInicial||5000;
 migrateAllData();
 loadCalView();
+loadSetupQ();
 (function(){
   var bd=document.getElementById('vmDollar'),bp=document.getElementById('vmPercent');
   if(bd)bd.classList.toggle('active',calView==='dollar');

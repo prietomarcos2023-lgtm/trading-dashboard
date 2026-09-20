@@ -219,6 +219,11 @@ body {
 .nav-btns { display: flex; gap: 8px; align-items: center; }
 
 .filter-btns { display: flex; gap: 4px; }
+
+.view-mode-btns { display: flex; gap: 2px; padding: 2px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 20px; }
+.view-mode-btn { padding: 5px 12px; border-radius: 18px; font-size: 10px; font-weight: 700; cursor: pointer; border: none; background: transparent; color: var(--muted); font-family: var(--mono); transition: all 0.18s; }
+.view-mode-btn:hover { color: var(--text2); }
+.view-mode-btn.active { background: var(--gold); color: #000; box-shadow: 0 0 10px rgba(214,168,79,0.3); }
 .filter-btn { padding: 5px 13px; border-radius: 20px; font-size: 10px; font-weight: 700; cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--muted); transition: all 0.18s; font-family: var(--sans); letter-spacing: 0.3px; }
 .filter-btn:hover { color: var(--text2); }
 .filter-btn.active-all  { border-color: rgba(214,168,79,0.5); color: var(--gold); background: var(--gold-bg); }

@@ -77,7 +77,19 @@ function saveSetupQFromModal(){
   saveSetupQ();closeSetupQModal();renderStatusPanel();toast('Tabla de calidad actualizada');
 }
 let currentDayTrades=[],activeTradeTab=0,activeImgTradeIdx=0,activeImgSlotIdx=0;
-const EMPTY_TRADE=()=>({type:null,result:'',pair:'',session:'',executionType:'',setupType:'',setup:'',notas:'',images:[null,null,null],imageNotas:['','','']});
+// Orden de capturas v2: HTF/Bias, Rango H3/H4 a favor, Entry OB, Resultado.
+// Los registros antiguos tienen 3 slots: preservamos entrada y resultado al insertar el nuevo slot.
+const IMG_LABELS=['HTF / Bias','Rango H3/H4 a favor','Entry OB','Resultado'];
+function normalizeTradeImages(t){
+  const images=Array.isArray(t.images)?t.images:[];
+  const notes=Array.isArray(t.imageNotas)?t.imageNotas:[];
+  const isLegacy=images.length<4;
+  return {...t,
+    images:isLegacy?[images[0]||null,null,images[1]||null,images[2]||null]:[images[0]||null,images[1]||null,images[2]||null,images[3]||null],
+    imageNotas:isLegacy?[notes[0]||'','',notes[1]||'',notes[2]||'']:[notes[0]||'',notes[1]||'',notes[2]||'',notes[3]||'']
+  };
+}
+const EMPTY_TRADE=()=>({type:null,result:'',pair:'',session:'',executionType:'',setupType:'',setup:'',notas:'',images:[null,null,null,null],imageNotas:['','','','']});
 
 function loadAccounts(){try{const r=localStorage.getItem(LS_ACCOUNTS);accounts=r?JSON.parse(r):[];}catch(e){accounts=[];}}
 function saveAccounts(){localStorage.setItem(LS_ACCOUNTS,JSON.stringify(accounts));}
@@ -244,20 +256,28 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 function migrateEntry(e){
   if(!e)return null;
   if(e.trades&&Array.isArray(e.trades)){
-    e.trades=e.trades.map(t=>({...t,images:[t.images?.[0]||null,t.images?.[1]||null,t.images?.[2]||null],imageNotas:[t.imageNotas?.[0]||'',t.imageNotas?.[1]||'',t.imageNotas?.[2]||'']}));
+    e.trades=e.trades.map(normalizeTradeImages);
     return e;
   }
   const m={...e};
   if(m.ganado!==undefined&&m.result===undefined){m.result=m.ganado?Math.abs(Number(m.pnl||0)):-Math.abs(Number(m.pnl||0));m.type=m.ganado?'TP':'SL';m.pair=m.par||m.pair||'';m.session=m.sesion||m.session||'';}
   if(m.img&&!m.images)m.images=[m.img];
-  const t1={type:m.type||null,result:m.result!==undefined?String(m.result):'',pair:m.pair||'',session:m.session||'',executionType:m.executionType||'',setupType:m.setupType||'',setup:m.setup||'',notas:m.notas||'',images:[m.images?.[0]||null,m.images?.[1]||null,m.images?.[2]||null],imageNotas:[m.imageNotas?.[0]||'',m.imageNotas?.[1]||'',m.imageNotas?.[2]||'']};
+  const t1={type:m.type||null,result:m.result!==undefined?String(m.result):'',pair:m.pair||'',session:m.session||'',executionType:m.executionType||'',setupType:m.setupType||'',setup:m.setup||'',notas:m.notas||'',images:m.images||[],imageNotas:m.imageNotas||[]};
+  const normalizedT1=normalizeTradeImages(t1);
   const totalResult=t1.result!==''?parseFloat(t1.result):0;
-  return{trades:[t1],totalResult,weekday:m.weekday||'',accountId:m.accountId||activeAccountId,result:totalResult,type:t1.type,pair:t1.pair,session:t1.session};
+  return{trades:[normalizedT1],totalResult,weekday:m.weekday||'',accountId:m.accountId||activeAccountId,result:totalResult,type:t1.type,pair:t1.pair,session:t1.session};
 }
 
 function migrateAllData(){
   let changed=false;
-  Object.keys(data).forEach(k=>{if(data[k]&&!Array.isArray(data[k].trades)){data[k]=migrateEntry(data[k]);changed=true;}});
+  Object.keys(data).forEach(k=>{
+    if(!data[k])return;
+    if(!Array.isArray(data[k].trades)){
+      data[k]=migrateEntry(data[k]);changed=true;
+    }else if(data[k].trades.some(t=>!Array.isArray(t.images)||t.images.length<4)){
+      data[k]=migrateEntry(data[k]);changed=true;
+    }
+  });
   if(changed)saveAccountData(activeAccountId,data);
 }
 
@@ -496,7 +516,7 @@ function openDayModal(k){
   currentDayTrades=[0,1,2].map(function(i){
     if(existingTrades[i]){
       const t=existingTrades[i];
-      return{type:t.type||null,result:t.result!==undefined?String(t.result):'',pair:t.pair||'',session:t.session||'',executionType:t.executionType||'',setupType:t.setupType||'',setup:t.setup||'',notas:t.notas||'',images:[t.images?.[0]||null,t.images?.[1]||null,t.images?.[2]||null],imageNotas:[t.imageNotas?.[0]||'',t.imageNotas?.[1]||'',t.imageNotas?.[2]||'']};
+      return{type:t.type||null,result:t.result!==undefined?String(t.result):'',pair:t.pair||'',session:t.session||'',executionType:t.executionType||'',setupType:t.setupType||'',setup:t.setup||'',notas:t.notas||'',images:normalizeTradeImages(t).images,imageNotas:normalizeTradeImages(t).imageNotas};
     }
     return EMPTY_TRADE();
   });
@@ -520,9 +540,9 @@ function buildTradePanel(t,i){
   const sessOpts=['Asia','Londres','NY','Overlap'].map(function(v){return '<option value="'+v+'"'+(t.session===v?' selected':'')+'>'+v+'</option>';}).join('');
   const execOpts=[['buena','Buena'],['mala','Mala'],['emocional','Emocional']].map(function(x){return '<option value="'+x[0]+'"'+(t.executionType===x[0]?' selected':'')+'>'+x[1]+'</option>';}).join('');
   const setupOpts='<option value="">-- Setup --</option><option value="Rango CRT - Order Block"'+(t.setupType==='Rango CRT - Order Block'?' selected':'')+'>Rango CRT - Order Block</option><option value="Rango CRT - Continuacion"'+(t.setupType==='Rango CRT - Continuacion'?' selected':'')+'>Rango CRT - Continuacion</option>';
-  const imgLabels=['HTF / Bias','Entrada M5','Resultado'];
+  const imgLabels=IMG_LABELS;
   let imgHTML='';
-  for(let si=0;si<3;si++){
+  for(let si=0;si<IMG_LABELS.length;si++){
     const img=t.images[si];const nota=t.imageNotas[si]||'';
     imgHTML+='<div style="margin-bottom:12px">';
     imgHTML+='<div style="font-size:10px;color:var(--gold);margin-bottom:4px;font-weight:600">'+imgLabels[si]+'</div>';
@@ -533,7 +553,7 @@ function buildTradePanel(t,i){
     imgHTML+='<textarea class="form-textarea" id="imgNota_'+i+'_'+si+'" placeholder="Nota de esta imagen..." rows="2" oninput="onImgNotaInput('+i+','+si+')" style="margin-top:4px;font-size:11px;min-height:38px">'+esc(nota)+'</textarea>';
     imgHTML+='</div>';
   }
-  return '<div class="trade-panel" id="tradePanel'+i+'" style="display:none"><div class="result-type"><button class="type-btn'+(t.type==='TP'?' tp-active':'')+'" id="btnTP_'+i+'" onclick="setTradeType('+i+',\'TP\')">TP Ganado</button><button class="type-btn'+(t.type==='BE'?' be-active':'')+'" id="btnBE_'+i+'" onclick="setTradeType('+i+',\'BE\')">BE</button><button class="type-btn'+(t.type==='SL'?' sl-active':'')+'" id="btnSL_'+i+'" onclick="setTradeType('+i+',\'SL\')">SL Perdido</button></div><div class="form-row"><div class="form-group"><label class="form-label">Resultado ($)</label><input type="number" class="form-input" id="fRes_'+i+'" placeholder="45.50" step="0.01" value="'+esc(t.result)+'" oninput="onTradeInput('+i+')"></div><div class="form-group"><label class="form-label">Par</label><select class="form-select" id="fPair_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Par --</option>'+pairOpts+'</select></div></div><div class="form-row-3"><div class="form-group"><label class="form-label">Sesion</label><select class="form-select" id="fSess_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Sesion --</option>'+sessOpts+'</select></div><div class="form-group"><label class="form-label">Ejecucion</label><select class="form-select" id="fExec_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Ejecucion --</option>'+execOpts+'</select></div><div class="form-group"><label class="form-label">Setup CRT</label><select class="form-select" id="fSetupType_'+i+'" onchange="onTradeInput('+i+')">'+setupOpts+'</select></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Detalle entrada</label><input type="text" class="form-input" id="fSetup_'+i+'" placeholder="Purge + OB H1 + FVG M5" value="'+esc(t.setup)+'" oninput="onTradeInput('+i+')"></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Notas del trade</label><textarea class="form-textarea" id="fNotas_'+i+'" placeholder="Que salio bien? Que mejorar?" oninput="onTradeInput('+i+')">'+esc(t.notas)+'</textarea></div></div><div class="form-group" style="margin-top:12px"><label class="form-label">Screenshots (3 imagenes con notas)</label>'+imgHTML+'</div></div>';
+  return '<div class="trade-panel" id="tradePanel'+i+'" style="display:none"><div class="result-type"><button class="type-btn'+(t.type==='TP'?' tp-active':'')+'" id="btnTP_'+i+'" onclick="setTradeType('+i+',\'TP\')">TP Ganado</button><button class="type-btn'+(t.type==='BE'?' be-active':'')+'" id="btnBE_'+i+'" onclick="setTradeType('+i+',\'BE\')">BE</button><button class="type-btn'+(t.type==='SL'?' sl-active':'')+'" id="btnSL_'+i+'" onclick="setTradeType('+i+',\'SL\')">SL Perdido</button></div><div class="form-row"><div class="form-group"><label class="form-label">Resultado ($)</label><input type="number" class="form-input" id="fRes_'+i+'" placeholder="45.50" step="0.01" value="'+esc(t.result)+'" oninput="onTradeInput('+i+')"></div><div class="form-group"><label class="form-label">Par</label><select class="form-select" id="fPair_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Par --</option>'+pairOpts+'</select></div></div><div class="form-row-3"><div class="form-group"><label class="form-label">Sesion</label><select class="form-select" id="fSess_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Sesion --</option>'+sessOpts+'</select></div><div class="form-group"><label class="form-label">Ejecucion</label><select class="form-select" id="fExec_'+i+'" onchange="onTradeInput('+i+')"><option value="">-- Ejecucion --</option>'+execOpts+'</select></div><div class="form-group"><label class="form-label">Setup CRT</label><select class="form-select" id="fSetupType_'+i+'" onchange="onTradeInput('+i+')">'+setupOpts+'</select></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Detalle entrada</label><input type="text" class="form-input" id="fSetup_'+i+'" placeholder="Purge + OB H1 + FVG M5" value="'+esc(t.setup)+'" oninput="onTradeInput('+i+')"></div></div><div class="form-row"><div class="form-group full"><label class="form-label">Notas del trade</label><textarea class="form-textarea" id="fNotas_'+i+'" placeholder="Que salio bien? Que mejorar?" oninput="onTradeInput('+i+')">'+esc(t.notas)+'</textarea></div></div><div class="form-group" style="margin-top:12px"><label class="form-label">Screenshots (4 imágenes con notas)</label>'+imgHTML+'</div></div>';
 }
 
 function switchTradeTab(idx){
@@ -593,7 +613,7 @@ function handleMultiImage(event){
 function refreshImgSlot(tradeIdx,slotIdx){
   const slot=document.getElementById('imgSlot_'+tradeIdx+'_'+slotIdx);if(!slot)return;
   const src=currentDayTrades[tradeIdx].images[slotIdx];
-  const labels=['HTF / Bias','Entrada M5','Resultado'];
+  const labels=IMG_LABELS;
   if(src){slot.innerHTML='<img src="'+src+'" style="width:100%;height:100%;object-fit:cover;border-radius:6px;cursor:zoom-in" onclick="event.stopPropagation();viewImgModal('+tradeIdx+','+slotIdx+')"><button class="img-slot-del" onclick="removeImg(event,'+tradeIdx+','+slotIdx+')">x</button>';}
   else{slot.innerHTML='<span class="img-slot-ico">&#128247;</span><span class="img-slot-lbl">'+labels[slotIdx]+'</span>';}
 }
@@ -649,7 +669,7 @@ function saveDay(){
   const tradesWithData=currentDayTrades.filter(function(t){return t.result!==''&&t.result!==null;});
   if(!tradesWithData.length){delete data[k];saveAccountData(activeAccountId,data);closeTradeModal();renderCalendar();toast('Sin trades -- dia limpiado');return;}
   const totalResult=tradesWithData.reduce(function(s,t){return s+(parseFloat(t.result)||0);},0);
-  const cleanTrades=currentDayTrades.map(function(t){return{type:t.type,result:t.result!==''?parseFloat(t.result):'',pair:t.pair,session:t.session,executionType:t.executionType,setupType:t.setupType,setup:t.setup,notas:t.notas,images:[t.images[0]||null,t.images[1]||null,t.images[2]||null],imageNotas:[t.imageNotas[0]||'',t.imageNotas[1]||'',t.imageNotas[2]||'']};});
+  const cleanTrades=currentDayTrades.map(function(t){return{type:t.type,result:t.result!==''?parseFloat(t.result):'',pair:t.pair,session:t.session,executionType:t.executionType,setupType:t.setupType,setup:t.setup,notas:t.notas,images:[t.images[0]||null,t.images[1]||null,t.images[2]||null,t.images[3]||null],imageNotas:[t.imageNotas[0]||'',t.imageNotas[1]||'',t.imageNotas[2]||'',t.imageNotas[3]||'']};});
   data[k]={trades:cleanTrades,totalResult:totalResult,weekday:weekdays[dateObj.getDay()],accountId:activeAccountId,result:totalResult,type:cleanTrades[0]?cleanTrades[0].type:null,pair:cleanTrades[0]?cleanTrades[0].pair:'',session:cleanTrades[0]?cleanTrades[0].session:''};
   saveAccountData(activeAccountId,data);
   if(activeAccountId==='default')localStorage.setItem('mtj_data',JSON.stringify(data));

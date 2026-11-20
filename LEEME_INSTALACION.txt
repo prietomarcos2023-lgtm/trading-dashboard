@@ -1,0 +1,44 @@
+MAREBLU TRADING JOURNAL v6 — PWA / PC + CELULAR
+================================================
+
+ANTES DE ACTUALIZAR
+1. Desde tu dashboard actual descargá Backup JSON y guardá una copia segura.
+2. No borres datos del navegador ni desinstales la app antigua antes de verificar el backup.
+
+PUBLICACIÓN EN GITHUB PAGES
+1. Descomprimí Mareblu_Journal_v6_PWA_PC_Android.zip.
+2. Subí TODOS los archivos extraídos a la RAÍZ del repositorio GitHub Pages
+   (junto a index.html). No subas la carpeta contenedora: subí su contenido.
+3. Reemplazá index.html, styles.css y script.js existentes.
+4. Confirmá los cambios en GitHub y abrí la URL https://TU-USUARIO.github.io/TU-REPO/.
+5. Actualizá la página. Si se ve la versión anterior, hacé una recarga forzada
+   o cerrá y reabrí la app. Las actualizaciones de PWA pueden tardar una recarga.
+
+INSTALAR EN PC
+- En Google Chrome o Microsoft Edge, abrí la URL publicada en GitHub Pages.
+- Usá el botón «Instalar app» del dashboard, si el navegador ofrece instalación.
+  También podés usar el menú del navegador → Instalar Mareblu Trading Journal.
+- La aplicación puede abrirse en ventana independiente y anclarse al escritorio.
+
+INSTALAR EN ANDROID
+- Abrí la misma URL en Chrome o un navegador compatible.
+- Tocá «Instalar app» o el menú del navegador → Instalar aplicación.
+- El journal se abre a pantalla de app, con adaptación responsive.
+
+USO OFFLINE
+- Se guardan en caché los archivos principales de la aplicación después de
+  cargar la página online. Podés abrirla sin conexión desde la PWA.
+- No hay sincronización de datos entre computadoras, navegadores ni celulares.
+- Las imágenes y operaciones existentes se guardan en el almacenamiento local
+  del navegador. Importar un backup JSON puede ayudar al mover datos a otro
+  dispositivo, pero debés verificar que sea compatible y esté completo.
+- Algunas fuentes alojadas en Google pueden no cargar sin Internet.
+
+INFORMACIÓN IMPORTANTE
+- GitHub Pages usa HTTPS; abrir index.html con doble clic desde una carpeta
+  NO permite instalar una PWA ni registrar un service worker.
+- Si el navegador muestra «Añadir a pantalla de inicio» en vez de «Instalar»,
+  el soporte depende del navegador y sistema operativo.
+- El botón «Instalar app» ofrece instrucciones si el navegador no ha habilitado
+  un aviso de instalación.
+- No se ha hecho una validación visual integral en Windows/Android real.

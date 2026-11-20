@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Mareblu Trading Journal — Sistema de rendimiento personal">
 <meta name="theme-color" content="#0B0E13">
-<title>Journal</title>
+<title>Mareblu Trading Journal</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mareblu">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -354,7 +361,7 @@
     <div class="heatmap-header">
       <div>
         <div class="heatmap-title">🔥 Mapa de Calor — Rendimiento por Sesión y Día</div>
-        <div class="heatmap-sub">P&amp;L acumulado · Londres / NY · Basado en todos tus trades registrados</div>
+        <div class="heatmap-sub">P&amp;L acumulado · London Lunch / New York · Basado en todos tus trades registrados</div>
       </div>
       <button class="intel-close" onclick="closeHeatmap()">✕</button>
     </div>
@@ -372,5 +379,6 @@
 
 <input type="file" id="fImagenMulti" accept="image/*" style="display:none" onchange="handleMultiImage(event)">
 <script src="script.js" defer></script>
+<script src="pwa.js" defer></script>
 </body>
 </html>
